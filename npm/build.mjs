@@ -29,6 +29,16 @@ if (!/^\d+\.\d+\.\d+(-[\w.]+)?$/.test(version ?? '')) {
 const main = JSON.parse(readFileSync(join(root, 'npm', 'why', 'package.json'), 'utf8'));
 const run = (cmd, args, opts = {}) => execFileSync(cmd, args, { stdio: 'inherit', ...opts });
 
+// 途中で失敗しても再実行で続きから公開できるように、公開済みの版は飛ばす
+const published = (name, v) => {
+  try {
+    return execFileSync('npm', ['view', `${name}@${v}`, 'version'], { stdio: ['ignore', 'pipe', 'ignore'] })
+      .toString().trim() === v;
+  } catch {
+    return false;
+  }
+};
+
 rmSync(out, { recursive: true, force: true });
 const dirs = [];
 
@@ -66,7 +76,14 @@ dirs.push(mainDir); // 本体はバイナリより後に公開する
 
 if (flags.includes('--publish')) {
   const extra = process.env.GITHUB_ACTIONS ? ['--provenance'] : [];
-  for (const dir of dirs) run('npm', ['publish', '--access', 'public', ...extra], { cwd: dir });
+  for (const dir of dirs) {
+    const { name } = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'));
+    if (published(name, version)) {
+      console.log(`==> 公開済みなので飛ばす: ${name}@${version}`);
+      continue;
+    }
+    run('npm', ['publish', '--access', 'public', ...extra], { cwd: dir });
+  }
 } else if (flags.includes('--pack')) {
   for (const dir of dirs) run('npm', ['pack', '--pack-destination', out], { cwd: dir });
 }
