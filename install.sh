@@ -1,18 +1,20 @@
 #!/bin/sh
 # why のインストーラ
 #
-#   ./install.sh                 リポジトリ内から: ソースをビルドしてインストール
 #   curl -fsSL https://raw.githubusercontent.com/Lapius7/why/main/install.sh | sh
-#                                どこからでも: go install で最新版をインストール
+#                 GitHub Release からビルド済みバイナリを取得（Go 不要）
+#   ./install.sh  リポジトリ内から実行し Go があれば、ソースをビルドしてインストール
 #
 # オプション:
 #   --no-hook     シェルの設定ファイルにフックを追記しない
 #   --uninstall   バイナリとフックを削除する
 # 環境変数:
-#   WHY_BIN       インストール先（既定: $(go env GOPATH)/bin）
+#   WHY_BIN       インストール先（既定: ~/.local/bin）
+#   WHY_VERSION   取得するバージョン（例: v0.1.1。既定: 最新）
 set -eu
 
 MODULE=github.com/Lapius7/why
+REPO=Lapius7/why
 HOOK=1
 MODE=install
 
@@ -62,13 +64,39 @@ detect_shell() {
 }
 
 bin_dir() {
-	if [ -n "${WHY_BIN:-}" ]; then
-		echo "$WHY_BIN"
-	elif command -v go >/dev/null 2>&1; then
-		echo "$(go env GOPATH)/bin"
+	echo "${WHY_BIN:-$HOME/.local/bin}"
+}
+
+# GitHub Release から OS/CPU に合うバイナリを取得して $1 に置く
+download() {
+	case $(uname -s) in
+	Linux) os=linux ;;
+	Darwin) os=darwin ;;
+	*) die "未対応の OS です: $(uname -s)（Linux / macOS のみ）" ;;
+	esac
+	case $(uname -m) in
+	x86_64 | amd64) arch=x64 ;;
+	aarch64 | arm64) arch=arm64 ;;
+	*) die "未対応の CPU です: $(uname -m)（x86_64 / arm64 のみ）" ;;
+	esac
+	if [ -n "${WHY_VERSION:-}" ]; then
+		url=https://github.com/$REPO/releases/download/$WHY_VERSION/why-$os-$arch.tar.gz
 	else
-		echo "$HOME/go/bin"
+		url=https://github.com/$REPO/releases/latest/download/why-$os-$arch.tar.gz
 	fi
+	info "ダウンロードします: $url"
+	tmp=$(mktemp -d)
+	if command -v curl >/dev/null 2>&1; then
+		curl -fsSL "$url" -o "$tmp/why.tar.gz" || die "ダウンロードに失敗しました"
+	elif command -v wget >/dev/null 2>&1; then
+		wget -qO "$tmp/why.tar.gz" "$url" || die "ダウンロードに失敗しました"
+	else
+		die "curl か wget が必要です"
+	fi
+	tar -xzf "$tmp/why.tar.gz" -C "$tmp" why
+	chmod +x "$tmp/why"
+	mv -f "$tmp/why" "$1/why"
+	rm -rf "$tmp"
 }
 
 uninstall() {
@@ -90,18 +118,15 @@ uninstall() {
 }
 
 install() {
-	command -v go >/dev/null 2>&1 ||
-		die "Go が見つかりません。先にインストールしてください（例: mise use -g go@latest）"
-
 	dir=$(bin_dir)
 	mkdir -p "$dir"
 	src=$(cd "$(dirname "$0")" 2>/dev/null && pwd || true)
-	if [ -n "$src" ] && [ -f "$src/go.mod" ] && grep -q "^module $MODULE\$" "$src/go.mod"; then
+	if [ -n "$src" ] && [ -f "$src/go.mod" ] && grep -q "^module $MODULE\$" "$src/go.mod" &&
+		command -v go >/dev/null 2>&1; then
 		info "ソースからビルドします: $src"
 		(cd "$src" && GOBIN=$dir go install ./cmd/why)
 	else
-		info "go install で最新版を取得します: $MODULE"
-		GOBIN=$dir go install "$MODULE/cmd/why@latest"
+		download "$dir"
 	fi
 	info "インストールしました: $dir/why ($("$dir/why" -v))"
 
