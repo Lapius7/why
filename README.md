@@ -17,15 +17,29 @@ $ why
 
 ## インストール
 
-Go が必要。バイナリの配置と、シェルの設定ファイルへのフック追記を一度に行う。
+### npm（推奨）
+
+```sh
+npm i -g @lapius7/why
+```
+
+Linux / macOS（x64・arm64）用のビルド済みバイナリが入る。Go は不要。インストール後、下の表のフックを設定ファイルに追記する。
+
+npm 11 以降は既定でインストールスクリプトが動かず、`why` は node 経由で起動する（1 回あたり 40ms ほど遅い）。ネイティブバイナリを直接使うには `npm i -g @lapius7/why --allow-scripts=@lapius7/why` で入れる。
+
+### インストーラ（Go が必要）
+
+バイナリの配置と、シェルの設定ファイルへのフック追記を一度に行う。
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/Lapius7/why/main/install.sh | sh
 ```
 
-リポジトリを clone 済みなら `./install.sh`（または `just install`）。オプションは `--no-hook`（フックを追記しない）と `--uninstall`（削除）。
+リポジトリを clone 済みなら `./install.sh`（または `just install`）。オプションは `--no-hook`（フックを追記しない）と `--uninstall`（削除）。`go install github.com/Lapius7/why/cmd/why@latest` でも入る。
 
-Go だけで入れる場合は `go install github.com/Lapius7/why/cmd/why@latest` を実行し、フックは次を手動で追記する（失敗したコマンドを記録するだけで、成功時は何もしない）。
+### フック
+
+失敗したコマンドを記録するだけで、成功時は何もしない。
 
 | シェル | 追記する内容 |
 |-|-|
@@ -79,3 +93,17 @@ Go だけで入れる場合は `go install github.com/Lapius7/why/cmd/why@latest
 ## 記録ファイル
 
 `${XDG_STATE_HOME:-~/.local/state}/why/last-<シェルのPID>`。内容は終了コード・cwd・コマンドの 3 つ。7 日より古いものは自動で削除する。
+
+## リリース
+
+`v*` タグを push すると GitHub Actions がビルドし、npm（`@lapius7/why` と OS/CPU 別の `@lapius7/why-<os>-<cpu>`）への公開と GitHub Release への添付を行う。
+
+```sh
+git tag v0.1.0 && git push origin v0.1.0
+```
+
+ローカルで確認するなら `just npm-pack`（`dist/npm/` に .tgz を作る）。
+
+## ライセンス
+
+MIT
