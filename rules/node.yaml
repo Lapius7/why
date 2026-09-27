@@ -116,3 +116,11 @@
   fix:
     - "表示されたファイル(行,列) の箇所を直す"
     - "全体を確認する: npx tsc --noEmit"
+
+- id: npx-could-not-determine
+  output: 'could not determine executable to run'
+  example: "npm error could not determine executable to run"
+  cause: "npx で実行するコマンドが特定できない（パッケージ名とコマンド名が違う）"
+  fix:
+    - "パッケージを明示する: npx -p <パッケージ> <コマンド>"
+    - "パッケージ名の綴りを確認する: npm view <パッケージ> bin"

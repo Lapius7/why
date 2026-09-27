@@ -89,3 +89,36 @@
   fix:
     - "必要なライブラリを -l で指定する（例: -lpthread -lm）"
     - "ライブラリの指定はソースファイルより後ろに置く"
+
+- id: go-undefined
+  output: '(?P<file>\S+\.go):(?P<line>\d+):\d+: undefined: (?P<name>\S+)'
+  example: "./main.go:12:2: undefined: foo"
+  cause: "「{{name}}」が定義されていない（{{file}}:{{line}}）"
+  fix:
+    - "綴りと大文字小文字を確認する（他パッケージのものは大文字で始まる必要がある）"
+    - "別ファイルに定義があるなら、go run main.go ではなく go run . で全ファイルをビルドする"
+    - "パッケージの import を確認する"
+
+- id: go-unused
+  output: '"(?P<pkg>[^"]+)" imported and not used|declared and not used: (?P<var>\S+)|(?P<var>\S+) declared (?:and|but) not used'
+  example: "./main.go:4:2: \"os\" imported and not used"
+  cause: "使っていない import または変数がある（Go ではコンパイルエラー）"
+  fix:
+    - "import「{{pkg}}」を消す（goimports -w . で自動整理できる）"
+    - "変数「{{var}}」を消すか、_ = {{var}} で一時的に回避する"
+
+- id: go-no-go-files
+  output: 'no Go files in (?P<dir>\S+)'
+  example: "no Go files in /home/user/app"
+  cause: "{{dir}} に Go のソースがない"
+  fix:
+    - "main パッケージのあるディレクトリを指定する: go run ./cmd/<名前>"
+    - "ディレクトリ構成を確認する: fd -e go"
+
+- id: go-no-required-module
+  output: 'no required module provides package (?P<pkg>[^\s;]+)'
+  example: "main.go:5:2: no required module provides package github.com/google/uuid; to add it:"
+  cause: "パッケージ「{{pkg}}」が go.mod に入っていない"
+  fix:
+    - "追加する: go get {{pkg}}"
+    - "まとめて整理する: go mod tidy"

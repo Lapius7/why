@@ -169,3 +169,45 @@
   cause: "git が致命的エラー（fatal）で終了した"
   fix:
     - "fatal: の行に具体的な理由が出ている"
+
+- id: git-not-a-command
+  output: 'git: ''(?P<sub>[^'']+)'' is not a git command(?:[\s\S]*?most similar commands? (?:is|are)\s+(?P<sug>\S+))?'
+  example: "git: 'stauts' is not a git command. See 'git --help'.\n\nThe most similar command is\n\tstatus"
+  priority: 1
+  cause: "「git {{sub}}」というサブコマンドはない"
+  fix:
+    - "もしかして: git {{sug}}"
+    - "ファイルを消すなら git rm、ブランチを消すなら git branch -d <ブランチ>"
+    - "サブコマンド一覧: git help -a"
+
+- id: git-unknown-revision
+  output: 'ambiguous argument ''(?P<ref>[^'']+)'': unknown revision'
+  example: "fatal: ambiguous argument 'mian': unknown revision or path not in the working tree."
+  cause: "ブランチ・タグ・コミット「{{ref}}」が見つからない"
+  fix:
+    - "ブランチ一覧を確認する: git branch -a"
+    - "リモートの最新を取得する: git fetch --all --tags"
+    - "ファイルを指定したいなら -- で区切る: git log -- {{ref}}"
+
+- id: git-branch-exists
+  output: 'a branch named ''(?P<name>[^'']+)'' already exists'
+  example: "fatal: a branch named 'feature' already exists"
+  cause: "ブランチ「{{name}}」はすでにある"
+  fix:
+    - "そのブランチに移る: git switch {{name}}"
+    - "作り直すなら: git switch -C {{name}}（既存のブランチを上書きする）"
+
+- id: git-tag-exists
+  output: 'tag ''(?P<name>[^'']+)'' already exists'
+  example: "fatal: tag 'v0.1.6' already exists"
+  cause: "タグ「{{name}}」はすでにある"
+  fix:
+    - "次のバージョン番号を使う（git tag --sort=-v:refname | head で最新を確認）"
+    - "付け直すなら（未 push の場合のみ）: git tag -d {{name}}"
+
+- id: git-no-commits
+  output: 'does not have any commits yet|bad default revision ''HEAD'''
+  example: "fatal: your current branch 'main' does not have any commits yet"
+  cause: "まだ 1 つもコミットがない"
+  fix:
+    - "最初のコミットを作る: git add . && git commit -m \"initial commit\""

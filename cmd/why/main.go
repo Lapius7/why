@@ -18,7 +18,7 @@ import (
 	"github.com/Lapius7/why/internal/runner"
 )
 
-var version = "0.1.1"
+var version = "0.1.2"
 
 const usage = `why - 失敗したコマンドの原因と対処法を表示する
 
@@ -118,7 +118,7 @@ func run(args []string) int {
 		out := rules.Normalize(string(b))
 		rep := render.Report{Code: o.code, HasOutput: strings.TrimSpace(out) != ""}
 		rep.Results = set.Match(rules.Input{Code: o.code, Output: out}, 3)
-		p.Print(addHints(rep))
+		p.Print(addHints(rep, true))
 		return 0
 	case o.code >= 0:
 		rep := render.Report{Code: o.code}
@@ -140,7 +140,7 @@ func runDirect(o opts, set *rules.Set, p render.Printer) int {
 	rep := render.Report{Cmd: cmdline, Cwd: wd, Code: res.Code, HasOutput: strings.TrimSpace(out) != ""}
 	rep.Results = set.Match(rules.Input{Cmd: cmdline, Code: res.Code, Output: out}, 3)
 	fmt.Fprintln(os.Stdout)
-	p.Print(addHints(rep))
+	p.Print(addHints(rep, true))
 	return res.Code
 }
 
@@ -181,12 +181,13 @@ func explainLast(o opts, set *rules.Set, p render.Printer) int {
 
 	rep.HasOutput = strings.TrimSpace(in.Output) != ""
 	rep.Results = set.Match(in, 3)
-	p.Print(addHints(rep))
+	p.Print(addHints(rep, o.rerun))
 	return 0
 }
 
-func addHints(r render.Report) render.Report {
-	if !r.HasOutput && r.Cmd != "" {
+// captured は出力を取り込み済み（再実行・直接実行・パイプ）かどうか。
+func addHints(r render.Report, captured bool) render.Report {
+	if !captured && !r.HasOutput && r.Cmd != "" {
 		r.Hints = append(r.Hints, "出力も含めて調べるには why -r（再実行）か <コマンド> 2>&1 | why")
 	}
 	if len(r.Results) == 0 && r.HasOutput {

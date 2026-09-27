@@ -1,5 +1,7 @@
 # why
 
+[![npm](https://img.shields.io/npm/v/@lapius/why)](https://www.npmjs.com/package/@lapius/why) [![release](https://github.com/Lapius7/why/actions/workflows/release.yml/badge.svg)](https://github.com/Lapius7/why/actions/workflows/release.yml)
+
 失敗したコマンドの**原因と対処法を日本語で表示する** CLI。オフラインで動作し、AI は使わない。
 
 ```
@@ -27,15 +29,19 @@ Linux / macOS（x64・arm64）用のビルド済みバイナリが入る。Go �
 
 npm 11 以降は既定でインストールスクリプトが動かず、`why` は node 経由で起動する（1 回あたり 40ms ほど遅い）。ネイティブバイナリを直接使うには `npm i -g @lapius/why --allow-scripts=@lapius/why` で入れる。
 
-### インストーラ（Go が必要）
+### インストーラ（npm も Go も不要）
 
-バイナリの配置と、シェルの設定ファイルへのフック追記を一度に行う。
+GitHub Release からビルド済みバイナリを `~/.local/bin` に取得し、シェルの設定ファイルへのフック追記まで行う。
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/Lapius7/why/main/install.sh | sh
 ```
 
-リポジトリを clone 済みなら `./install.sh`（または `just install`）。オプションは `--no-hook`（フックを追記しない）と `--uninstall`（削除）。`go install github.com/Lapius7/why/cmd/why@latest` でも入る。
+オプションは `--no-hook`（フックを追記しない）と `--uninstall`（削除）。インストール先は `WHY_BIN`、バージョンは `WHY_VERSION=v0.1.1` で指定できる。
+
+### ソースから
+
+`go install github.com/Lapius7/why/cmd/why@latest`。clone 済みなら `./install.sh`（または `just install`）でソースからビルドしてフックも追記する。
 
 ### フック
 

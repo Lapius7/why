@@ -302,3 +302,61 @@
   cause: "このシェルでは使えない変数展開の書き方をしている"
   fix:
     - "sh（dash）ではなく bash で実行する: bash <ファイル>"
+
+- id: cd-no-such-dir
+  output: 'cd: (?:no such file or directory: (?P<dir>.+)|(?P<dir>.+): (?:No such file or directory|そのようなファイルやディレクトリはありません))'
+  example: "zsh: cd: no such file or directory: ~/porjects"
+  priority: 1
+  cause: "移動先のディレクトリ「{{dir}}」がない"
+  fix:
+    - "綴りを確認する（Tab 補完を使うと確実）"
+    - "よく行く場所なら z <名前の一部> でジャンプできる（zoxide）"
+    - "作るなら: mkdir -p {{dir}}"
+
+- id: grep-no-match
+  prog: 'grep|egrep|fgrep|rg|ag'
+  code: [1]
+  cause: "一致する行がなかった（エラーではない。grep は見つからないと 1 を返す）"
+  fix:
+    - "大文字小文字を無視するなら -i を付ける"
+    - "スクリプトで失敗扱いにしたくないなら: grep ... || true"
+
+- id: diff-differs
+  prog: 'diff|cmp'
+  code: [1]
+  cause: "ファイルに差分があった（エラーではない。diff は差分があると 1 を返す）"
+  fix:
+    - "差分を見やすくするなら: delta / diff-so-fancy"
+
+- id: test-false
+  prog: 'test|\['
+  code: [1]
+  cause: "条件が偽だった（エラーではない）"
+  fix:
+    - "条件式を確認する（ファイルの有無・文字列比較・数値比較）"
+
+- id: pkill-no-process
+  prog: 'pkill|pgrep|killall'
+  code: [1]
+  cause: "名前に一致するプロセスがなかった（すでに終了している可能性）"
+  fix:
+    - "実行中のプロセスを確認する: pgrep -af <名前の一部>"
+    - "コマンドライン全体で探すなら -f を付ける: pkill -f <パターン>"
+
+- id: sudo-command-not-found
+  output: 'sudo: (?P<name>\S+): command not found|sudo: (?P<name>\S+): コマンドが見つかりません'
+  example: "sudo: npm: command not found"
+  priority: 1
+  cause: "sudo の中では PATH がリセットされ、「{{name}}」が見つからない（mise・nvm などで入れたコマンドによくある）"
+  fix:
+    - "フルパスで実行する: sudo \"$(command -v {{name}})\" ..."
+    - "今の PATH を引き継ぐ: sudo env \"PATH=$PATH\" {{name}} ..."
+    - "そもそも sudo が要らないか確認する（npm i -g などはユーザー権限で入る設定にする）"
+
+- id: find-paths-precede
+  output: 'find: paths must precede expression: [`''](?P<arg>[^''`]+)'''
+  example: "find: paths must precede expression: `b.txt'"
+  cause: "find のパターンがシェルに展開され、複数のファイル名になってしまった"
+  fix:
+    - "パターンを引用符で囲む: find . -name '*.txt'"
+    - "fd なら簡単: fd -e txt"

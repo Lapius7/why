@@ -145,3 +145,11 @@
   fix:
     - "代わりに service コマンドを使う: sudo service <名前> start"
     - "/etc/wsl.conf に [boot] systemd=true を書き、wsl --shutdown で再起動する"
+
+- id: brew-no-formula
+  output: 'No available formula (?:or cask )?with the name "(?P<name>[^"]+)"'
+  example: "Error: No available formula with the name \"shodn\"."
+  cause: "Homebrew に「{{name}}」という名前のパッケージがない"
+  fix:
+    - "検索する: brew search {{name}}"
+    - "Linux なら apt search {{name}} や mise で入らないかも確認する"
