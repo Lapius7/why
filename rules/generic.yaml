@@ -1,0 +1,304 @@
+# 汎用ルール（特定のツールに依存しないもの）
+# 書式: prog/cmd/code/output のうち指定したものがすべて一致したときに表示される。
+# output の名前付きグループ (?P<name>...) は cause/fix の {{name}} で参照できる。
+# {{prog}} {{cmd}} {{code}} は常に使える。値が空の変数を含む fix 行は表示されない。
+
+- id: command-not-found
+  code: [127]
+  cause: "コマンド「{{prog}}」が見つからない"
+  fix:
+    - "スペルを確認する: type {{prog}}"
+    - "未インストールなら導入する（apt search {{prog}} / mise use / npm i -g など）"
+    - "インストール直後なら PATH を読み直す: exec $SHELL / hash -r"
+
+- id: command-not-found-zsh
+  output: 'command not found: (?P<name>\S+)'
+  example: "zsh: command not found: gti"
+  cause: "コマンド「{{name}}」が見つからない"
+  fix:
+    - "スペルを確認する: type {{name}}"
+    - "未インストールなら導入する（apt search {{name}} など）"
+
+- id: command-not-found-bash
+  output: '^(?:\S+: )?(?:(?:line|行) \d+: |\d+ 行: )?(?P<name>[^\s:]+): (?:command not found|コマンドが見つかりません)'
+  example: "bash: gti: command not found"
+  cause: "コマンド「{{name}}」が見つからない"
+  fix:
+    - "スペルを確認する: type {{name}}"
+    - "未インストールなら導入する（apt search {{name}} など）"
+
+- id: cannot-execute
+  code: [126]
+  cause: "「{{prog}}」は見つかったが実行できない"
+  fix:
+    - "実行権限を付ける: chmod +x {{prog}}"
+    - "ディレクトリを実行していないか確認: ls -ld {{prog}}"
+    - "ファイル形式を確認: file {{prog}}"
+
+- id: crlf-shebang
+  output: '(?:\r|\^M): bad interpreter|\$''\\r'': command not found|\r: command not found'
+  example: "bash: ./run.sh: /bin/bash\r: bad interpreter: No such file or directory"
+  priority: 2
+  cause: "スクリプトの改行コードが CRLF（Windows 形式）になっている"
+  fix:
+    - "LF に変換する: sed -i 's/\\r$//' <ファイル>"
+    - "エディタの改行コード設定を LF にする（git なら core.autocrlf=input）"
+
+- id: bad-interpreter
+  output: '(?i)bad interpreter:.*no such file'
+  example: "zsh: ./x.py: bad interpreter: /usr/bin/python: no such file or directory"
+  cause: "shebang（1 行目の #!）で指定したインタプリタが存在しない"
+  fix:
+    - "1 行目を確認する: head -1 <ファイル>"
+    - "#!/usr/bin/env python3 のように env 経由で書くと環境差に強い"
+
+- id: no-such-file
+  output: '''(?P<path>[^'']+)'' にアクセスできません: そのような|(?P<path>[^\s:''"]+)''?: (?:[Nn]o such file or directory|そのようなファイルやディレクトリはありません)'
+  example: "ls: '/nope' にアクセスできません: そのようなファイルやディレクトリはありません"
+  priority: -1
+  cause: "「{{path}}」が存在しない"
+  fix:
+    - "パスの綴りを確認する: ls $(dirname {{path}})"
+    - "相対パスなら現在地を確認する: pwd"
+    - "シンボリックリンク切れでないか確認する: ls -l {{path}}"
+
+- id: permission-denied
+  output: '(?i)permission denied|EACCES|許可がありません'
+  example: "bash: ./deploy.sh: Permission denied"
+  priority: -1
+  cause: "権限が足りない"
+  fix:
+    - "所有者と権限を確認する: ls -l <対象>"
+    - "スクリプトなら実行権限を付ける: chmod +x <ファイル>"
+    - "システムのファイルなら sudo が必要か確認する"
+    - "/mnt/c 配下なら Windows 側でファイルが開かれている・ロックされていないか確認する"
+
+- id: operation-not-permitted
+  output: '(?i)operation not permitted|EPERM\b|許可されていない操作です'
+  example: "chmod: changing permissions of 'a': Operation not permitted"
+  cause: "操作が許可されていない（root でも拒否される種類の操作）"
+  fix:
+    - "所有者が自分か確認する: ls -l <対象>"
+    - "/mnt/c 配下の chmod/chown は /etc/wsl.conf の metadata オプションが必要"
+    - "属性を確認する: lsattr <対象>"
+
+- id: is-a-directory
+  output: '(?P<path>[^\s:]+): (?:[Ii]s a directory|ディレクトリです)'
+  example: "cat: src: Is a directory"
+  cause: "「{{path}}」はディレクトリなのでファイルとして扱えない"
+  fix:
+    - "中身を見るなら: ls {{path}}"
+    - "ディレクトリごと処理するなら -r などのオプションを確認する"
+
+- id: not-a-directory
+  output: '[Nn]ot a directory|ディレクトリではありません'
+  example: "cd: not a directory: README.md"
+  cause: "ディレクトリのつもりのパスがファイルになっている"
+  fix:
+    - "パスの途中にファイルが含まれていないか確認する"
+
+- id: disk-full
+  output: '(?i)no space left on device|ENOSPC\b|デバイスに空き領域がありません'
+  example: "write error: No space left on device"
+  cause: "ディスクの空き容量がない"
+  fix:
+    - "空きを確認する: duf（または df -h）"
+    - "大きいディレクトリを探す: dust ~"
+    - "Docker が原因なら: docker system df"
+
+- id: inotify-limit
+  output: 'System limit for number of file watchers reached|ENOSPC: .*watch'
+  example: "Error: ENOSPC: System limit for number of file watchers reached, watch '/app'"
+  priority: 2
+  cause: "ファイル監視（inotify）の上限に達した（ディスク容量の問題ではない）"
+  fix:
+    - "上限を上げる: echo fs.inotify.max_user_watches=524288 | sudo tee -a /etc/sysctl.conf && sudo sysctl -p"
+    - "node_modules などを監視対象から外す"
+
+- id: too-many-open-files
+  output: '(?i)too many open files|EMFILE\b|開いているファイルが多すぎます'
+  example: "accept4: too many open files"
+  cause: "開けるファイル数の上限に達した"
+  fix:
+    - "現在の上限を確認する: ulimit -n"
+    - "一時的に上げる: ulimit -n 65535"
+
+- id: readonly-fs
+  output: '(?i)read-only file system|EROFS\b|読み込み専用ファイルシステムです'
+  example: "touch: cannot touch 'a': Read-only file system"
+  cause: "読み取り専用のファイルシステムに書き込もうとした"
+  fix:
+    - "マウント状態を確認する: mount | grep ' ro,'"
+    - "WSL で突然なった場合はディスクエラーの可能性: wsl --shutdown で再起動"
+
+- id: text-file-busy
+  output: '(?i)text file busy|ETXTBSY'
+  example: "cp: cannot create regular file 'app': Text file busy"
+  cause: "実行中のファイルを上書きしようとした"
+  fix:
+    - "そのプログラムを止めてから上書きする: procs <名前>"
+
+- id: arg-list-too-long
+  output: '(?i)argument list too long|E2BIG|引数リストが長すぎます'
+  example: "bash: /bin/rm: Argument list too long"
+  cause: "引数が多すぎる（* の展開でファイルが大量になった）"
+  fix:
+    - "find と組み合わせる: find . -name '*.log' -exec <コマンド> {} +"
+    - "xargs を使う: fd -e log -X <コマンド>"
+
+- id: exec-format-error
+  output: '(?i)exec format error|cannot execute binary file|実行形式エラー|バイナリファイルを実行できません'
+  example: "bash: ./app: cannot execute binary file: Exec format error"
+  cause: "この CPU・OS 向けではないバイナリを実行しようとした"
+  fix:
+    - "形式を確認する: file <ファイル>（x86-64 / aarch64 / Windows PE など）"
+    - "正しいアーキテクチャ向けのものを入手する"
+
+- id: wsl-interop
+  cmd: '\.exe\b'
+  output: '(?i)exec format error|cannot execute binary file'
+  example: "zsh: exec format error: explorer.exe"
+  priority: 1
+  cause: "WSL から Windows の .exe を実行する機能（interop）が無効になっている"
+  fix:
+    - "状態を確認する: cat /proc/sys/fs/binfmt_misc/WSLInterop"
+    - "/etc/wsl.conf の [interop] enabled=true を確認し、wsl --shutdown で再起動する"
+
+- id: port-in-use
+  output: '(?i)EADDRINUSE.*?:(?P<port>\d+)|address already in use|port is already allocated'
+  example: "Error: listen EADDRINUSE: address already in use :::3000"
+  cause: "使おうとしたポートが既に使われている"
+  fix:
+    - "ポート {{port}} を使っているプロセスを確認する: ss -ltnp 'sport = :{{port}}'"
+    - "使用中のポートを一覧する: ss -ltnp（または procs --tcp）"
+    - "前回起動したサーバーが残っていないか確認する"
+
+- id: connection-refused
+  output: '(?i)connection refused|ECONNREFUSED|接続を拒否されました'
+  example: "curl: (7) Failed to connect to localhost port 8080: Connection refused"
+  cause: "接続先のポートで何も待ち受けていない"
+  fix:
+    - "サーバーが起動しているか確認する: ss -ltnp"
+    - "ホスト名・ポート番号が正しいか確認する"
+    - "Docker なら -p でポートを公開しているか確認する: docker ps"
+
+- id: dns-failure
+  output: '(?i)could not resolve host|name or service not known|temporary failure in name resolution|getaddrinfo (?:ENOTFOUND|EAI_AGAIN)|no such host'
+  example: "curl: (6) Could not resolve host: exmaple.com"
+  cause: "ホスト名を IP アドレスに変換（DNS 解決）できない"
+  fix:
+    - "ホスト名の綴りを確認する"
+    - "DNS を確認する: doggo <ホスト名>"
+    - "WSL なら /etc/resolv.conf を確認する（VPN 接続中は壊れやすい）"
+
+- id: network-timeout
+  output: '(?i)connection timed out|ETIMEDOUT|operation timed out|i/o timeout'
+  example: "ssh: connect to host 10.0.0.5 port 22: Connection timed out"
+  cause: "接続先から応答がない（ファイアウォール・経路・相手のダウン）"
+  fix:
+    - "疎通を確認する: gping <ホスト>"
+    - "ファイアウォールやセキュリティグループでポートが開いているか確認する"
+    - "プロキシや VPN が必要な環境か確認する"
+
+- id: network-unreachable
+  output: '(?i)network is unreachable|ENETUNREACH|no route to host|EHOSTUNREACH'
+  example: "connect: Network is unreachable"
+  cause: "ネットワークに到達できない（未接続・経路なし）"
+  fix:
+    - "ネット接続を確認する: gping 1.1.1.1"
+    - "IPv6 だけ失敗しているなら IPv4 を強制する（curl -4 など）"
+
+- id: ssl-cert
+  output: '(?i)certificate verify failed|unable to get local issuer certificate|self[- ]signed certificate|CERT_HAS_EXPIRED|SSL certificate problem|x509: certificate'
+  example: "curl: (60) SSL certificate problem: unable to get local issuer certificate"
+  cause: "TLS 証明書を検証できない"
+  fix:
+    - "時計がずれていないか確認する（WSL はスリープ後にずれやすい）: date / sudo hwclock -s"
+    - "CA 証明書を更新する: sudo apt install --reinstall ca-certificates"
+    - "社内プロキシがある環境ならその CA 証明書を追加する"
+
+- id: oom-killed
+  code: [137]
+  cause: "SIGKILL で強制終了された（多くはメモリ不足による OOM Killer）"
+  fix:
+    - "メモリを確認する: free -h"
+    - "OOM の記録を見る: sudo dmesg | grep -i -E 'killed process|out of memory'"
+    - "WSL のメモリ上限は %USERPROFILE%\\.wslconfig の [wsl2] memory= で変えられる"
+
+- id: oom-output
+  output: '^Killed$|(?i)out of memory|oom-?kill'
+  example: "Killed"
+  cause: "メモリ不足で強制終了された"
+  fix:
+    - "メモリを確認する: free -h"
+    - "並列数を減らす（make -j2 など）か、swap を増やす"
+
+- id: segfault
+  code: [139]
+  cause: "プログラムが不正なメモリアクセスでクラッシュした"
+  fix:
+    - "自作のプログラムならデバッガで確認する: gdb --args {{cmd}}"
+    - "既存ツールならバージョンを更新・再インストールする"
+
+- id: interrupted
+  code: [130]
+  cause: "Ctrl+C で中断された"
+  fix:
+    - "意図した中断なら問題ない"
+
+- id: sigpipe
+  code: [141]
+  cause: "出力先のパイプが先に閉じられた"
+  fix:
+    - "| head などで途中まで読んだだけなら問題ない"
+
+- id: terminated
+  code: [143]
+  cause: "SIGTERM で終了要求を受けた"
+  fix:
+    - "kill・docker stop・timeout などで止められていないか確認する"
+
+- id: timeout-cmd
+  code: [124]
+  prog: timeout
+  cause: "timeout で指定した時間内に終わらなかった"
+  fix:
+    - "制限時間を延ばすか、処理が止まっている原因を調べる"
+
+- id: sudo-not-sudoers
+  output: 'is not in the sudoers file'
+  example: "lap7 is not in the sudoers file.  This incident will be reported."
+  cause: "このユーザーには sudo の権限がない"
+  fix:
+    - "root で追加する: usermod -aG sudo <ユーザー>"
+    - "WSL なら PowerShell から root で入れる: wsl -u root"
+
+- id: sudo-no-tty
+  output: 'sudo: a (?:terminal|password) is required'
+  example: "sudo: a terminal is required to read the password"
+  cause: "sudo のパスワードを入力できない（非対話環境）"
+  fix:
+    - "先に端末で sudo -v を実行して認証を済ませておく"
+
+- id: shell-syntax
+  output: 'syntax error near unexpected token|unexpected EOF while looking for matching|parse error near|予期しないトークン .* 周辺に構文エラーがあります'
+  example: "bash: syntax error near unexpected token `('"
+  cause: "シェルの構文エラー（クォートや括弧の対応、特殊文字）"
+  fix:
+    - "特殊文字（( ) [ ] & | ; ! など）を含む引数はシングルクォートで囲む"
+    - "スクリプトなら構文を検査する: bash -n <ファイル> / shellcheck <ファイル>"
+
+- id: zsh-no-match
+  output: 'no matches found: (?P<pat>\S+)|一致するものがありません: (?P<pat>\S+)'
+  example: "zsh: no matches found: requests[socks]"
+  cause: "zsh が「{{pat}}」をファイル名のパターン（glob）として展開しようとして失敗した"
+  fix:
+    - "クォートする: '{{pat}}'"
+    - "URL や pip の extras（pkg[extra]）を渡すときによく起きる"
+
+- id: bad-substitution
+  output: '(?i)bad substitution'
+  example: "sh: 1: Bad substitution"
+  cause: "このシェルでは使えない変数展開の書き方をしている"
+  fix:
+    - "sh（dash）ではなく bash で実行する: bash <ファイル>"

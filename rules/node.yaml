@@ -1,0 +1,118 @@
+# Node.js / npm / pnpm / yarn / bun
+
+- id: npm-eresolve
+  output: 'ERESOLVE (?:unable to resolve|could not resolve)'
+  example: "npm ERR! ERESOLVE unable to resolve dependency tree"
+  cause: "依存パッケージ同士の peerDependencies（要求バージョン）が衝突している"
+  fix:
+    - "エラー中の Found: / Could not resolve dependency: を見て、どのパッケージが衝突しているか確認する"
+    - "衝突しているパッケージのバージョンを揃える"
+    - "とりあえず入れるなら: npm install --legacy-peer-deps"
+
+- id: npm-eacces
+  output: 'npm (?:ERR!|error) code EACCES'
+  example: "npm error code EACCES"
+  priority: 1
+  cause: "npm がファイルを書き込む権限がない（多くは sudo 付きで入れた残骸か、グローバルインストール先の権限）"
+  fix:
+    - "sudo npm は使わず、mise で入れた node を使う: mise use -g node@lts"
+    - "sudo で作られたファイルの所有者を戻す: sudo chown -R $USER ~/.npm"
+
+- id: npm-no-package-json
+  output: 'ENOENT.*package\.json|Could not read package\.json|no such file or directory, open ''.*package\.json'''
+  example: "npm error enoent Could not read package.json: Error: ENOENT: no such file or directory, open '/home/u/package.json'"
+  priority: 1
+  cause: "package.json がない（プロジェクトのディレクトリ外で実行している）"
+  fix:
+    - "プロジェクトのディレクトリに移動する: pwd で現在地を確認"
+    - "新規なら作る: npm init -y"
+
+- id: npm-missing-script
+  output: 'Missing script: "?(?P<script>[^"\s]+)|Command "(?P<ycmd>[^"]+)" not found'
+  example: "npm error Missing script: \"dev\""
+  cause: "package.json に「{{script}}{{ycmd}}」という script がない"
+  fix:
+    - "使える script を確認する: npm run"
+    - "package.json の \"scripts\" を確認する"
+
+- id: node-module-not-found
+  output: 'Cannot find module ''(?P<mod>[^'']+)''|Cannot find package ''(?P<pkg>[^'']+)''|ERR_MODULE_NOT_FOUND'
+  example: "Error: Cannot find module 'express'"
+  cause: "モジュール「{{mod}}{{pkg}}」が見つからない"
+  fix:
+    - "依存をインストールする: npm install（pnpm install / bun install）"
+    - "未追加なら追加する: npm install {{mod}}"
+    - "./ で始まる自作ファイルならパスと拡張子を確認する"
+
+- id: node-heap-oom
+  output: 'JavaScript heap out of memory|Reached heap limit'
+  example: "FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory"
+  priority: 1
+  cause: "Node.js のヒープメモリ上限に達した"
+  fix:
+    - "上限を上げる: NODE_OPTIONS=--max-old-space-size=4096 {{cmd}}"
+    - "WSL 全体のメモリが足りないなら .wslconfig の memory= を増やす"
+
+- id: node-engine
+  output: 'EBADENGINE|Unsupported engine|The engine "node" is incompatible|requires (?:a )?Node(?:\.js)? (?:version )?(?P<want>[>=^~\d.x ]+)'
+  example: "npm warn EBADENGINE Unsupported engine {"
+  cause: "Node.js のバージョンがプロジェクトの要求と合っていない"
+  fix:
+    - "今のバージョンを確認する: node -v"
+    - "package.json の \"engines\" を見て合わせる: mise use node@<バージョン>"
+
+- id: node-esm
+  output: 'ERR_REQUIRE_ESM|Cannot use import statement outside a module|require is not defined in ES module scope'
+  example: "SyntaxError: Cannot use import statement outside a module"
+  cause: "ES Modules（import）と CommonJS（require）が混在している"
+  fix:
+    - "import を使うなら package.json に \"type\": \"module\" を書くか、拡張子を .mjs にする"
+    - "require を使うなら拡張子を .cjs にする"
+    - "ESM 専用のパッケージを require している場合は import に書き換える"
+
+- id: node-gyp
+  output: 'gyp ERR!|node-gyp'
+  example: "gyp ERR! build error"
+  cause: "ネイティブモジュールのビルドに失敗した（ビルドツール不足・Node のバージョン非対応）"
+  fix:
+    - "ビルドツールを入れる: sudo apt install build-essential python3"
+    - "そのパッケージが今の Node のバージョンに対応しているか確認する"
+
+- id: npm-404
+  output: 'npm (?:ERR!|error) 404|E404|404 Not Found - GET https://registry'
+  example: "npm error 404 Not Found - GET https://registry.npmjs.org/expresss - Not found"
+  priority: 1
+  cause: "パッケージがレジストリに存在しない（名前の誤り、または非公開パッケージ）"
+  fix:
+    - "パッケージ名の綴りを確認する: npm search <名前>"
+    - "スコープ付き（@org/pkg）の非公開パッケージなら .npmrc の認証を確認する"
+
+- id: npm-etarget
+  output: 'No matching version found for (?P<pkg>\S+)|ETARGET'
+  example: "npm error notarget No matching version found for react@99.0.0."
+  cause: "指定したバージョンのパッケージ「{{pkg}}」が存在しない"
+  fix:
+    - "公開されているバージョンを確認する: npm view <パッケージ> versions"
+
+- id: npm-eintegrity
+  output: 'EINTEGRITY|integrity checksum failed'
+  example: "npm error code EINTEGRITY"
+  cause: "ダウンロードしたパッケージのチェックサムが lockfile と一致しない"
+  fix:
+    - "キャッシュを検証する: npm cache verify"
+    - "直らなければ: npm cache clean --force してから再インストール"
+
+- id: corepack
+  output: 'This project is configured to use (?P<pm>\w+)|packageManager.*corepack'
+  example: "This project is configured to use pnpm because package.json has a \"packageManager\" field"
+  cause: "プロジェクトは {{pm}} を使う設定になっている"
+  fix:
+    - "{{pm}} を使う: corepack enable（または mise use {{pm}}）"
+
+- id: ts-error
+  output: 'error TS(?P<ts>\d+):'
+  example: "src/a.ts(3,7): error TS2322: Type 'string' is not assignable to type 'number'."
+  cause: "TypeScript の型エラー（TS{{ts}}）"
+  fix:
+    - "表示されたファイル(行,列) の箇所を直す"
+    - "全体を確認する: npx tsc --noEmit"

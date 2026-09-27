@@ -1,0 +1,171 @@
+# git
+
+- id: git-not-repo
+  output: '(?i)not a git repository'
+  example: "fatal: not a git repository (or any of the parent directories): .git"
+  cause: "今いるディレクトリは git リポジトリではない"
+  fix:
+    - "リポジトリのディレクトリに移動する（pwd で現在地を確認）"
+    - "新しく始めるなら: git init"
+
+- id: git-push-rejected
+  output: '\[rejected\].*\((?:fetch first|non-fast-forward)\)|Updates were rejected because'
+  example: " ! [rejected]        main -> main (fetch first)"
+  cause: "リモートに手元にないコミットがあるため push が拒否された"
+  fix:
+    - "取り込んでから push する: git pull --rebase && git push"
+    - "履歴を書き換えた後で上書きが意図通りなら: git push --force-with-lease"
+
+- id: git-no-upstream
+  output: 'has no upstream branch'
+  example: "fatal: The current branch feature has no upstream branch."
+  cause: "このブランチに push 先（upstream）が設定されていない"
+  fix:
+    - "設定して push する: git push -u origin HEAD"
+    - "毎回自動設定するなら: git config --global push.autoSetupRemote true"
+
+- id: git-src-refspec
+  output: 'src refspec (?P<ref>\S+) does not match any'
+  example: "error: src refspec main does not match any"
+  cause: "push しようとしたブランチ「{{ref}}」が手元にない（名前違い、またはまだコミットがない）"
+  fix:
+    - "ブランチ名を確認する: git branch（main / master の違いに注意）"
+    - "まだコミットしていないなら先に: git add . && git commit"
+
+- id: git-https-auth
+  output: 'Authentication failed for|could not read Username|Invalid username or (?:password|token)'
+  example: "fatal: Authentication failed for 'https://github.com/user/repo.git/'"
+  cause: "HTTPS での認証に失敗した（GitHub はパスワード認証不可）"
+  fix:
+    - "gh でログインして認証情報を設定する: gh auth login && gh auth setup-git"
+    - "または SSH の URL に切り替える: git remote set-url origin git@github.com:<user>/<repo>.git"
+
+- id: git-repo-not-found
+  output: 'Repository not found|repository ''.*'' not found|does not appear to be a git repository'
+  example: "ERROR: Repository not found."
+  cause: "リポジトリが見つからない（URL の誤り、またはアクセス権がない）"
+  fix:
+    - "リモートの URL を確認する: git remote -v"
+    - "非公開リポジトリならアクセス権と認証アカウントを確認する: gh auth status"
+
+- id: git-conflict
+  output: 'CONFLICT \(|Automatic merge failed|fix conflicts and then|could not apply [0-9a-f]+'
+  example: "CONFLICT (content): Merge conflict in src/app.ts"
+  cause: "マージ（リベース）でコンフリクトが起きた"
+  fix:
+    - "衝突しているファイルを確認する: git status"
+    - "<<<<<<< ======= >>>>>>> の部分を直して git add <ファイル>"
+    - "続ける: git merge --continue / git rebase --continue"
+    - "やめて元に戻す: git merge --abort / git rebase --abort"
+
+- id: git-local-changes
+  output: 'Your local changes to the following files would be overwritten'
+  example: "error: Your local changes to the following files would be overwritten by checkout:"
+  cause: "コミットしていない変更があり、この操作で上書きされてしまう"
+  fix:
+    - "一時退避する: git stash → 操作 → git stash pop"
+    - "またはコミットしてから操作する"
+
+- id: git-untracked-overwritten
+  output: 'untracked working tree files would be overwritten'
+  example: "error: The following untracked working tree files would be overwritten by merge:"
+  cause: "管理外のファイルが、取り込もうとしているファイルと同名で衝突している"
+  fix:
+    - "該当ファイルを別の場所に移すか削除してからやり直す"
+
+- id: git-index-lock
+  output: 'index\.lock''?: File exists|Another git process seems to be running'
+  example: "fatal: Unable to create '/repo/.git/index.lock': File exists."
+  cause: "git のロックファイルが残っている（別の git が実行中、または異常終了の残骸）"
+  fix:
+    - "他に git（エディタの git 連携を含む）が動いていないか確認する: procs git"
+    - "動いていなければ消す: rm -f .git/index.lock"
+
+- id: git-pathspec
+  output: 'pathspec ''(?P<spec>[^'']+)'' did not match'
+  example: "error: pathspec 'feture' did not match any file(s) known to git"
+  cause: "「{{spec}}」というブランチ・ファイルが見つからない"
+  fix:
+    - "ブランチ名を確認する: git branch -a"
+    - "リモートのブランチならまず取得する: git fetch"
+
+- id: git-unrelated-histories
+  output: 'refusing to merge unrelated histories'
+  example: "fatal: refusing to merge unrelated histories"
+  cause: "共通の祖先を持たない 2 つの履歴をマージしようとした"
+  fix:
+    - "意図通りなら: git pull --allow-unrelated-histories"
+    - "リモートの URL が正しいか確認する: git remote -v"
+
+- id: git-divergent
+  output: '(?i)divergent branches|Not possible to fast-forward'
+  example: "hint: You have divergent branches and need to specify how to reconcile them."
+  cause: "手元とリモートの両方に新しいコミットがあり、統合方法が決まっていない"
+  fix:
+    - "今回だけ: git pull --rebase"
+    - "既定にする: git config --global pull.rebase true"
+
+- id: git-nothing-to-commit
+  output: 'nothing to commit|no changes added to commit|nothing added to commit'
+  example: "no changes added to commit (use \"git add\" and/or \"git commit -a\")"
+  cause: "コミットする変更がステージされていない"
+  fix:
+    - "変更を確認する: git status"
+    - "ステージしてからコミットする: git add <ファイル>"
+
+- id: git-dubious-ownership
+  output: 'dubious ownership in repository at ''(?P<dir>[^'']+)'''
+  example: "fatal: detected dubious ownership in repository at '/mnt/c/work/repo'"
+  cause: "リポジトリの所有者が現在のユーザーと違うため、git が安全のため操作を拒否した"
+  fix:
+    - "信頼できるなら許可する: git config --global --add safe.directory '{{dir}}'"
+    - "/mnt/c 配下でよく起きる。WSL 側（~ 以下）に置くと速くて確実"
+
+- id: git-identity
+  output: 'Please tell me who you are|Author identity unknown'
+  example: "Author identity unknown"
+  cause: "コミットに使う名前とメールアドレスが設定されていない"
+  fix:
+    - "git config --global user.name \"名前\""
+    - "git config --global user.email \"メール\""
+
+- id: git-large-file
+  output: 'GH001|exceeds GitHub''s file size limit|this exceeds .* file size limit'
+  example: "remote: error: GH001: Large files detected."
+  cause: "GitHub の上限（100MB）を超えるファイルをコミットしている"
+  fix:
+    - "大きなファイルは Git LFS で管理する: git lfs track '<パターン>'"
+    - "直前のコミットなら取り消してやり直す: git reset --soft HEAD~1"
+
+- id: git-merge-in-progress
+  output: 'You have not concluded your merge|MERGE_HEAD exists'
+  example: "fatal: You have not concluded your merge (MERGE_HEAD exists)."
+  cause: "前回のマージが途中のまま残っている"
+  fix:
+    - "完了させる: 衝突を解消して git commit"
+    - "やめる: git merge --abort"
+
+- id: git-rebase-in-progress
+  output: 'rebase-merge directory already exists|already a rebase-merge directory|You are in the middle of'
+  example: "It seems that there is already a rebase-merge directory"
+  cause: "前回のリベースなどが途中のまま残っている"
+  fix:
+    - "続ける: git rebase --continue"
+    - "やめる: git rebase --abort"
+
+- id: git-no-remote
+  output: '''(?P<remote>[^'']+)'' does not appear to be a git repository|No such remote'
+  example: "fatal: 'origin' does not appear to be a git repository"
+  priority: 1
+  cause: "リモート「{{remote}}」が登録されていない"
+  fix:
+    - "確認する: git remote -v"
+    - "追加する: git remote add origin <URL>"
+
+- id: git-generic
+  prog: git
+  code: [128]
+  priority: -1
+  cause: "git が致命的エラー（fatal）で終了した"
+  fix:
+    - "fatal: の行に具体的な理由が出ている"
