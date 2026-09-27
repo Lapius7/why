@@ -5,13 +5,13 @@
 'use strict';
 const { spawnSync } = require('child_process');
 
-const pkg = `@lapius7/why-${process.platform}-${process.arch}`;
+const pkg = `@lapius/why-${process.platform}-${process.arch}`;
 let bin;
 try {
   bin = require.resolve(`${pkg}/bin/why`);
 } catch {
   console.error(`why: ${pkg} が見つかりません（未対応の環境か、optionalDependencies が省略されました）`);
-  console.error('  npm i -g @lapius7/why で入れ直してください');
+  console.error('  npm i -g @lapius/why で入れ直してください');
   process.exit(1);
 }
 

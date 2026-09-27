@@ -20,12 +20,12 @@ $ why
 ### npm（推奨）
 
 ```sh
-npm i -g @lapius7/why
+npm i -g @lapius/why
 ```
 
 Linux / macOS（x64・arm64）用のビルド済みバイナリが入る。Go は不要。インストール後、下の表のフックを設定ファイルに追記する。
 
-npm 11 以降は既定でインストールスクリプトが動かず、`why` は node 経由で起動する（1 回あたり 40ms ほど遅い）。ネイティブバイナリを直接使うには `npm i -g @lapius7/why --allow-scripts=@lapius7/why` で入れる。
+npm 11 以降は既定でインストールスクリプトが動かず、`why` は node 経由で起動する（1 回あたり 40ms ほど遅い）。ネイティブバイナリを直接使うには `npm i -g @lapius/why --allow-scripts=@lapius/why` で入れる。
 
 ### インストーラ（Go が必要）
 
@@ -96,7 +96,7 @@ curl -fsSL https://raw.githubusercontent.com/Lapius7/why/main/install.sh | sh
 
 ## リリース
 
-`v*` タグを push すると GitHub Actions がビルドし、npm（`@lapius7/why` と OS/CPU 別の `@lapius7/why-<os>-<cpu>`）への公開と GitHub Release への添付を行う。
+`v*` タグを push すると GitHub Actions がビルドし、npm（`@lapius/why` と OS/CPU 別の `@lapius/why-<os>-<cpu>`）への公開と GitHub Release への添付を行う。
 
 ```sh
 git tag v0.1.0 && git push origin v0.1.0

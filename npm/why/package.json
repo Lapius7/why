@@ -1,5 +1,5 @@
 {
-  "name": "@lapius7/why",
+  "name": "@lapius/why",
   "version": "0.0.0",
   "description": "失敗したコマンドの原因と対処法を日本語で表示する CLI（オフライン・AI なし）",
   "keywords": ["cli", "shell", "error", "debug", "zsh", "bash", "fish", "japanese"],
