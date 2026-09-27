@@ -2,7 +2,16 @@
   "name": "@lapius/why",
   "version": "0.0.0",
   "description": "失敗したコマンドの原因と対処法を日本語で表示する CLI（オフライン・AI なし）",
-  "keywords": ["cli", "shell", "error", "debug", "zsh", "bash", "fish", "japanese"],
+  "keywords": [
+    "cli",
+    "shell",
+    "error",
+    "debug",
+    "zsh",
+    "bash",
+    "fish",
+    "japanese"
+  ],
   "homepage": "https://github.com/Lapius7/why",
   "repository": {
     "type": "git",
@@ -12,11 +21,16 @@
   "bin": {
     "why": "bin/why"
   },
-  "scripts": {
-    "postinstall": "node install.js"
-  },
-  "files": ["bin/why", "install.js"],
-  "os": ["linux", "darwin"],
-  "cpu": ["x64", "arm64"],
+  "files": [
+    "bin/why"
+  ],
+  "os": [
+    "linux",
+    "darwin"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ],
   "optionalDependencies": {}
 }

@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // OS/CPU 別パッケージのネイティブバイナリを起動するシム。
-// postinstall が動けばこのファイル自体がネイティブバイナリに置き換わるので、
-// ここを通るのは --ignore-scripts でインストールされた場合だけ。
+// 初回の起動時にこのファイル自体をネイティブバイナリで置き換え、次回からは node を経由しない。
+// （why init はシェル起動のたびに呼ばれるため。postinstall は npm 11 では既定で動かない）
 'use strict';
+const fs = require('fs');
 const { spawnSync } = require('child_process');
 
 const pkg = `@lapius/why-${process.platform}-${process.arch}`;
@@ -13,6 +14,16 @@ try {
   console.error(`why: ${pkg} が見つかりません（未対応の環境か、optionalDependencies が省略されました）`);
   console.error('  npm i -g @lapius/why で入れ直してください');
   process.exit(1);
+}
+
+try {
+  const self = fs.realpathSync(__filename);
+  const tmp = `${self}.${process.pid}.tmp`;
+  fs.copyFileSync(bin, tmp);
+  fs.chmodSync(tmp, 0o755);
+  fs.renameSync(tmp, self);
+} catch {
+  // 書き込めなければシムのまま動く
 }
 
 // 記録ファイルはシェルの PID で探すため、node ではなくシェルの PID を渡す

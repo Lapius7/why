@@ -18,7 +18,7 @@ import (
 	"github.com/Lapius7/why/internal/runner"
 )
 
-var version = "0.1.2"
+var version = "0.1.3"
 
 const usage = `why - 失敗したコマンドの原因と対処法を表示する
 
