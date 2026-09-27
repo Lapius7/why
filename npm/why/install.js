@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 
 try {
-  const src = require.resolve(`@lapius7/why-${process.platform}-${process.arch}/bin/why`);
+  const src = require.resolve(`@lapius/why-${process.platform}-${process.arch}/bin/why`);
   const dst = path.join(__dirname, 'bin', 'why');
   const tmp = dst + '.tmp';
   fs.copyFileSync(src, tmp);

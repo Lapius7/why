@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const out = join(root, 'dist', 'npm');
-const scope = '@lapius7';
+const scope = '@lapius';
 
 // [node の platform, node の arch, GOOS, GOARCH]
 const targets = [
