@@ -1,0 +1,91 @@
+# make / just / Go / Rust / C
+
+- id: make-no-rule
+  output: 'No rule to make target ''(?P<target>[^'']+)'''
+  example: "make: *** No rule to make target 'biuld'.  Stop."
+  cause: "Makefile に「{{target}}」というターゲットがない（または依存ファイルが存在しない）"
+  fix:
+    - "ターゲットを確認する: grep -E '^[a-zA-Z0-9_-]+:' Makefile"
+
+- id: make-no-makefile
+  output: 'No targets specified and no makefile found'
+  example: "make: *** No targets specified and no makefile found.  Stop."
+  cause: "このディレクトリに Makefile がない"
+  fix:
+    - "Makefile のあるディレクトリに移動する"
+
+- id: make-missing-separator
+  output: 'missing separator'
+  example: "Makefile:3: *** missing separator.  Stop."
+  cause: "Makefile のコマンド行がタブではなくスペースで字下げされている"
+  fix:
+    - "レシピ行の先頭をタブにする（エディタの「タブをスペースに変換」を無効に）"
+
+- id: just-no-recipe
+  output: 'Justfile does not contain recipe `(?P<recipe>[^`]+)`'
+  example: "error: Justfile does not contain recipe `biuld`."
+  cause: "justfile に「{{recipe}}」というレシピがない"
+  fix:
+    - "レシピを一覧する: just --list"
+
+- id: just-no-justfile
+  output: 'No justfile found'
+  example: "error: No justfile found"
+  cause: "justfile が見つからない"
+  fix:
+    - "justfile のあるディレクトリに移動する"
+
+- id: go-no-module
+  output: 'go\.mod file not found|cannot find main module'
+  example: "go: go.mod file not found in current directory or any parent directory; see 'go help modules'"
+  cause: "Go モジュール（go.mod）がない"
+  fix:
+    - "新規なら作る: go mod init <モジュール名>"
+    - "プロジェクトのディレクトリで実行しているか確認する"
+
+- id: go-sum-missing
+  output: 'missing go\.sum entry|no required module provides package'
+  example: "missing go.sum entry for module providing package gopkg.in/yaml.v3"
+  cause: "依存が go.mod / go.sum に記録されていない"
+  fix:
+    - "整える: go mod tidy"
+
+- id: go-version
+  output: 'requires go >= (?P<ver>[\d.]+)|go\.mod requires go >= (?P<ver2>[\d.]+)'
+  example: "go: go.mod requires go >= 1.27 (running go 1.26.8; GOTOOLCHAIN=local)"
+  priority: 1
+  cause: "Go のバージョンが足りない（{{ver}}{{ver2}} 以上が必要）"
+  fix:
+    - "上げる: mise use go@latest"
+
+- id: rust-error-code
+  output: 'error\[(?P<ecode>E\d{4})\]'
+  example: "error[E0382]: borrow of moved value: `v`"
+  cause: "Rust のコンパイルエラー {{ecode}}"
+  fix:
+    - "詳しい解説を読む: rustc --explain {{ecode}}"
+
+- id: cargo-no-manifest
+  output: 'could not find `Cargo\.toml`'
+  example: "error: could not find `Cargo.toml` in `/home/u` or any parent directory"
+  cause: "Cargo.toml が見つからない"
+  fix:
+    - "プロジェクトのディレクトリに移動する"
+    - "新規なら: cargo new <名前>"
+
+- id: c-missing-header
+  output: 'fatal error: (?P<hdr>[\w/.+-]+\.h): No such file or directory'
+  example: "fatal error: openssl/ssl.h: No such file or directory"
+  priority: 1
+  cause: "ヘッダファイル「{{hdr}}」がない（開発用パッケージが入っていない）"
+  fix:
+    - "提供パッケージを探す: apt-file search {{hdr}}（多くは lib○○-dev）"
+    - "例: openssl → libssl-dev, zlib.h → zlib1g-dev, ffi.h → libffi-dev"
+
+- id: c-undefined-reference
+  output: 'undefined reference to `(?P<sym>[^'']+)'''
+  example: "main.c:(.text+0x1a): undefined reference to `pthread_create'"
+  cause: "リンク時に関数「{{sym}}」の実体が見つからない"
+  fix:
+    - "必要なライブラリを -l で指定する（例: -lpthread -lm）"
+    - "ライブラリの指定はソースファイルより後ろに置く"

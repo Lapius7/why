@@ -1,0 +1,147 @@
+# apt / ssh / curl など
+
+- id: apt-lock
+  output: 'Could not get lock|Unable to acquire the dpkg frontend lock|Unable to lock the administration directory'
+  example: "E: Could not get lock /var/lib/dpkg/lock-frontend. It is held by process 1234 (apt)"
+  cause: "別の apt / dpkg が実行中でロックされている"
+  fix:
+    - "終わるのを待つ（自動更新が動いていることが多い）: procs apt"
+    - "プロセスが残っていないのにロックだけ残る場合は再起動（WSL なら wsl --shutdown）"
+
+- id: apt-not-root
+  output: '(?i)are you root\?'
+  example: "E: Unable to acquire the dpkg frontend lock (/var/lib/dpkg/lock-frontend), are you root?"
+  priority: 1
+  cause: "apt は root 権限が必要"
+  fix:
+    - "sudo を付けて実行する: sudo {{cmd}}"
+
+- id: apt-unable-to-locate
+  output: 'Unable to locate package (?P<pkg>\S+)|Package ''(?P<pkg2>[^'']+)'' has no installation candidate'
+  example: "E: Unable to locate package ripgrepp"
+  cause: "パッケージ「{{pkg}}{{pkg2}}」が見つからない"
+  fix:
+    - "パッケージ一覧を更新する: sudo apt update"
+    - "名前を検索する: apt search <キーワード>"
+
+- id: apt-dpkg-interrupted
+  output: 'dpkg was interrupted'
+  example: "E: dpkg was interrupted, you must manually run 'sudo dpkg --configure -a' to correct the problem."
+  cause: "前回のインストールが途中で止まっている"
+  fix:
+    - "続きを実行する: sudo dpkg --configure -a"
+
+- id: apt-broken
+  output: 'Unmet dependencies|held broken packages|you have held broken packages'
+  example: "E: Unmet dependencies. Try 'apt --fix-broken install' with no packages (or specify a solution)."
+  cause: "パッケージの依存関係が壊れている"
+  fix:
+    - "修復する: sudo apt --fix-broken install"
+
+- id: apt-fetch-failed
+  output: 'Failed to fetch .*404|404\s+Not Found \[IP'
+  example: "E: Failed to fetch http://archive.ubuntu.com/pool/main/x.deb  404  Not Found [IP: 1.2.3.4 80]"
+  cause: "パッケージ一覧が古く、既に消えたファイルを取りに行った"
+  fix:
+    - "更新してからやり直す: sudo apt update"
+
+- id: apt-no-pubkey
+  output: 'NO_PUBKEY (?P<key>[0-9A-F]+)'
+  example: "W: GPG error: https://example.com stable InRelease: NO_PUBKEY 1234ABCD5678EF00"
+  cause: "リポジトリの署名鍵（{{key}}）が登録されていない"
+  fix:
+    - "そのリポジトリの公式手順に従って鍵を /etc/apt/keyrings に置き直す"
+
+- id: apt-clock
+  output: 'is not valid yet|Release file .* is expired'
+  example: "E: Release file for http://archive.ubuntu.com/ubuntu/dists/noble-updates/InRelease is not valid yet (invalid for another 2h 3min 1s)."
+  cause: "システムの時計がずれている（WSL はスリープ後にずれやすい）"
+  fix:
+    - "時刻を合わせる: sudo hwclock -s"
+
+- id: ssh-publickey
+  output: 'Permission denied \(publickey'
+  example: "git@github.com: Permission denied (publickey)."
+  priority: 1
+  cause: "SSH の公開鍵認証に失敗した（鍵が未登録、または使われていない）"
+  fix:
+    - "どの鍵が使われているか確認する: ssh -vT <ホスト>"
+    - "GitHub なら: ssh -T git@github.com で確認し、~/.ssh/id_ed25519.pub を登録する"
+    - "鍵をエージェントに追加する: ssh-add ~/.ssh/id_ed25519"
+
+- id: ssh-host-key-changed
+  output: 'REMOTE HOST IDENTIFICATION HAS CHANGED|Host key verification failed'
+  example: "@    WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!     @"
+  cause: "接続先のホスト鍵が以前と違う（サーバー再構築、または中間者攻撃の可能性）"
+  fix:
+    - "サーバーを作り直したなど心当たりがあるなら古い鍵を消す: ssh-keygen -R <ホスト>"
+    - "心当たりがなければ接続せず管理者に確認する"
+
+- id: ssh-key-permissions
+  output: 'UNPROTECTED PRIVATE KEY FILE|bad permissions'
+  example: "@         WARNING: UNPROTECTED PRIVATE KEY FILE!          @"
+  priority: 1
+  cause: "秘密鍵の権限が緩すぎるため ssh が使用を拒否した"
+  fix:
+    - "権限を絞る: chmod 600 <秘密鍵> && chmod 700 ~/.ssh"
+    - "/mnt/c 上の鍵は権限を変えられないので ~/.ssh にコピーして使う"
+
+- id: ssh-255
+  prog: ssh
+  code: [255]
+  cause: "SSH の接続自体に失敗した"
+  fix:
+    - "詳細を見る: 同じコマンドに -v を付けて実行する"
+
+- id: curl-6
+  prog: curl
+  code: [6]
+  cause: "ホスト名を解決できない（DNS）"
+  fix:
+    - "URL のホスト名の綴りを確認する"
+    - "DNS を確認する: doggo <ホスト名>"
+
+- id: curl-7
+  prog: curl
+  code: [7]
+  cause: "接続できない（サーバーが起動していない・ポートが違う）"
+  fix:
+    - "ポートで待ち受けているか確認する: ss -ltnp"
+
+- id: curl-22
+  prog: curl
+  code: [22]
+  cause: "HTTP エラー（400 以上）が返った（-f 指定時）"
+  fix:
+    - "レスポンスを確認する: curl -i <URL>（または http <URL>）"
+
+- id: curl-28
+  prog: curl
+  code: [28]
+  cause: "タイムアウトした"
+  fix:
+    - "サーバーの応答が遅いなら --max-time を延ばす"
+    - "経路・ファイアウォールを確認する"
+
+- id: curl-35
+  prog: curl
+  code: [35]
+  cause: "TLS（SSL）のハンドシェイクに失敗した"
+  fix:
+    - "http:// と https:// を取り違えていないか、ポートが正しいか確認する"
+
+- id: curl-60
+  prog: curl
+  code: [60]
+  cause: "サーバーの証明書を検証できない"
+  fix:
+    - "時計を確認する: date / sudo hwclock -s"
+    - "CA 証明書を更新する: sudo apt install --reinstall ca-certificates"
+
+- id: systemd-not-booted
+  output: 'System has not been booted with systemd|Failed to connect to bus'
+  example: "System has not been booted with systemd as init system (PID 1). Can't operate."
+  cause: "systemd が有効になっていない（WSL の既定）"
+  fix:
+    - "代わりに service コマンドを使う: sudo service <名前> start"
+    - "/etc/wsl.conf に [boot] systemd=true を書き、wsl --shutdown で再起動する"

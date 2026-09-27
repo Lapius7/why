@@ -1,0 +1,78 @@
+# Python / pip / uv
+
+- id: python-not-found
+  prog: python
+  code: [127]
+  priority: 1
+  cause: "「python」コマンドがない（Ubuntu には python3 しか入っていない）"
+  fix:
+    - "python3 を使う"
+    - "python でも呼べるようにする: sudo apt install python-is-python3"
+
+- id: py-module-not-found
+  output: 'No module named ''(?P<mod>[^''.]+)[^'']*'''
+  example: "ModuleNotFoundError: No module named 'yaml'"
+  cause: "Python モジュール「{{mod}}」が入っていない（または別の Python 環境で動いている）"
+  fix:
+    - "インストールする: pip install {{mod}}（名前が違う例: yaml→pyyaml, cv2→opencv-python, PIL→pillow, sklearn→scikit-learn, bs4→beautifulsoup4）"
+    - "どの Python で動いているか確認する: which python3 / pip -V（venv を有効化し忘れていないか）"
+
+- id: py-venv-missing
+  output: 'No module named venv|ensurepip is not available'
+  example: "The virtual environment was not created successfully because ensurepip is not available."
+  priority: 2
+  cause: "venv を作るためのパッケージが入っていない"
+  fix:
+    - "入れる: sudo apt install python3-venv"
+    - "または uv を使う: uv venv"
+
+- id: pip-externally-managed
+  output: 'externally-managed-environment'
+  example: "error: externally-managed-environment"
+  cause: "システムの Python に pip で直接インストールすることは禁止されている（PEP 668）"
+  fix:
+    - "プロジェクトごとに venv を作る: python3 -m venv .venv && . .venv/bin/activate"
+    - "CLI ツールなら: pipx install <パッケージ>（または uv tool install）"
+
+- id: pip-no-distribution
+  output: 'No matching distribution found for (?P<pkg>\S+)'
+  example: "ERROR: No matching distribution found for tensorflow==1.0"
+  cause: "「{{pkg}}」の、この Python のバージョン・OS に合う配布物がない"
+  fix:
+    - "パッケージ名とバージョン指定を確認する"
+    - "Python のバージョンが対応範囲か確認する: python3 -V"
+
+- id: py-syntax
+  output: '(?m)^(?P<exc>SyntaxError|IndentationError|TabError): (?P<msg>.+)$'
+  example: "IndentationError: unexpected indent"
+  priority: 1
+  cause: "Python の構文エラー（{{exc}}: {{msg}}）"
+  fix:
+    - "直前に表示されたファイル名・行番号・^ の位置を確認する"
+    - "タブとスペースが混在していないか確認する"
+
+- id: py-print-py2
+  output: 'Missing parentheses in call to ''print'''
+  example: "SyntaxError: Missing parentheses in call to 'print'. Did you mean print(...)?"
+  priority: 2
+  cause: "Python 2 用のコードを Python 3 で実行している"
+  fix:
+    - "print x を print(x) に直す"
+    - "古いスクリプトなら 2to3 で変換する"
+
+- id: py-unicode
+  output: 'UnicodeDecodeError|UnicodeEncodeError'
+  example: "UnicodeDecodeError: 'utf-8' codec can't decode byte 0x82 in position 0"
+  priority: 1
+  cause: "文字コードの不一致（Shift_JIS のファイルを UTF-8 として読んだなど）"
+  fix:
+    - "open(..., encoding='cp932') のように文字コードを指定する"
+    - "ファイルの文字コードを確認する: file -i <ファイル>"
+
+- id: py-traceback
+  output: '(?m)^(?P<exc>[A-Za-z_][\w.]*(?:Error|Exception)): (?P<msg>.*)$'
+  example: "KeyError: 'name'"
+  priority: -1
+  cause: "Python の例外 {{exc}}: {{msg}}"
+  fix:
+    - "Traceback の一番下にある自分のファイルの行から原因を追う"

@@ -1,0 +1,121 @@
+# Docker / Docker Compose
+
+- id: docker-daemon-down
+  output: 'Cannot connect to the Docker daemon|Is the docker daemon running|error during connect'
+  example: "Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?"
+  priority: 1
+  cause: "Docker デーモンが起動していない"
+  fix:
+    - "Docker Desktop を使っているなら起動し、Settings → Resources → WSL integration を確認する"
+    - "WSL 内の dockerd なら: sudo service docker start"
+
+- id: docker-socket-permission
+  output: 'permission denied while trying to connect to the Docker daemon socket'
+  example: "permission denied while trying to connect to the Docker daemon socket at unix:///var/run/docker.sock"
+  priority: 2
+  cause: "docker グループに入っていないため Docker を使えない"
+  fix:
+    - "グループに追加する: sudo usermod -aG docker $USER"
+    - "反映する: newgrp docker（またはログインし直す）"
+
+- id: docker-port-allocated
+  output: 'Bind for \S*?:(?P<port>\d+) failed: port is already allocated|ports are not available'
+  example: "Bind for 0.0.0.0:8080 failed: port is already allocated"
+  priority: 1
+  cause: "ホスト側のポートが既に使われている"
+  fix:
+    - "そのポートを使っているコンテナを探す: docker ps --filter publish={{port}}"
+    - "コンテナ以外なら: ss -ltnp 'sport = :{{port}}'"
+    - "-p <別のポート>:<コンテナのポート> で別のポートに割り当てる"
+
+- id: docker-name-conflict
+  output: 'The container name "/?(?P<name>[^"]+)" is already in use'
+  example: "Conflict. The container name \"/web\" is already in use by container \"abc123\"."
+  cause: "同じ名前のコンテナ「{{name}}」が既にある（停止中を含む）"
+  fix:
+    - "確認する: docker ps -a --filter name={{name}}"
+    - "不要なら削除する: docker rm -f {{name}}"
+    - "--rm を付けて起動すると終了時に自動で消える"
+
+- id: docker-image-not-found
+  output: 'pull access denied|manifest unknown|repository does not exist|Unable to find image .* locally\n.*(?:error|denied)'
+  example: "Error response from daemon: pull access denied for myapp, repository does not exist or may require 'docker login'"
+  cause: "イメージが見つからない（名前やタグの誤り、または非公開リポジトリ）"
+  fix:
+    - "イメージ名とタグの綴りを確認する"
+    - "手元でビルドするイメージなら先にビルドする: docker build -t <名前> ."
+    - "非公開なら: docker login"
+
+- id: docker-unauthorized
+  output: 'unauthorized: authentication required|denied: requested access to the resource is denied|unauthorized: incorrect username or password'
+  example: "denied: requested access to the resource is denied"
+  cause: "レジストリの認証に失敗した"
+  fix:
+    - "ログインする: docker login <レジストリ>"
+    - "push 先のイメージ名が自分のアカウント・組織になっているか確認する"
+
+- id: docker-platform
+  output: 'no matching manifest for|does not match the detected host platform|platform \(.+\) does not match'
+  example: "no matching manifest for linux/arm64/v8 in the manifest list entries"
+  cause: "このマシンの CPU アーキテクチャ向けのイメージがない"
+  fix:
+    - "プラットフォームを指定する: --platform linux/amd64"
+
+- id: compose-file-not-found
+  output: 'no configuration file provided: not found|Can''t find a suitable configuration file'
+  example: "no configuration file provided: not found"
+  cause: "compose.yaml（docker-compose.yml）が見つからない"
+  fix:
+    - "ファイルのあるディレクトリに移動する（ls で確認）"
+    - "場所を指定する: docker compose -f <ファイル> up"
+
+- id: docker-not-running
+  output: 'Container \S+ is not running|is not running'
+  prog: docker
+  example: "Error response from daemon: Container 3f2a is not running"
+  cause: "対象のコンテナが停止している"
+  fix:
+    - "状態を確認する: docker ps -a"
+    - "停止した理由をログで確認する: docker logs <コンテナ>"
+
+- id: docker-no-space
+  prog: 'docker(?:-compose)?'
+  output: '(?i)no space left on device'
+  example: "failed to register layer: write /usr/lib/x.so: no space left on device"
+  priority: 1
+  cause: "Docker が使うディスク領域がいっぱい"
+  fix:
+    - "使用量を確認する: docker system df"
+    - "不要なものを消す（内容を確認してから）: docker system prune"
+    - "Docker Desktop なら Settings → Resources でディスク上限を確認する"
+
+- id: docker-run-125
+  prog: docker
+  code: [125]
+  cause: "docker 自体のエラー（オプションの誤り・デーモンの問題）で、コンテナは動いていない"
+  fix:
+    - "Error response from daemon: の行に理由が出ている"
+    - "オプションを確認する: docker run --help"
+
+- id: docker-run-126
+  prog: docker
+  code: [126]
+  cause: "コンテナ内のコマンドを実行できなかった（権限・形式）"
+  fix:
+    - "エントリポイントのスクリプトに実行権限があるか、改行コードが LF か確認する"
+
+- id: docker-run-127
+  prog: docker
+  code: [127]
+  cause: "コンテナ内で指定したコマンドが見つからなかった"
+  fix:
+    - "イメージにそのコマンドが入っているか確認する: docker run --rm -it <イメージ> sh"
+
+- id: docker-oom
+  prog: 'docker(?:-compose)?'
+  code: [137]
+  priority: 1
+  cause: "コンテナが強制終了された（メモリ上限超過 = OOMKilled の可能性）"
+  fix:
+    - "確認する: docker inspect <コンテナ> --format '{{.State.OOMKilled}}'"
+    - "メモリ上限を上げる: --memory 2g（Docker Desktop なら Settings → Resources）"
