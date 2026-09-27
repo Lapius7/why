@@ -147,7 +147,7 @@ func runDirect(o opts, set *rules.Set, p render.Printer) int {
 func explainLast(o opts, set *rules.Set, p render.Printer) int {
 	dir := record.Dir()
 	record.Prune(dir, 7*24*time.Hour)
-	rec, err := record.Load(dir, os.Getppid())
+	rec, err := record.Load(dir, shellPID())
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "why: 失敗したコマンドの記録がありません。")
 		fmt.Fprintln(os.Stderr, "  フックが未設定なら: eval \"$(why init "+shellName()+")\" を設定ファイルに追記")
@@ -301,6 +301,15 @@ func shellName() string {
 		return s
 	}
 	return "zsh"
+}
+
+// shellPID は why を起動したシェルの PID を返す。
+// npm の JS シム経由だと親は node になるため、シムが WHY_PPID で渡す。
+func shellPID() int {
+	if n, err := strconv.Atoi(os.Getenv("WHY_PPID")); err == nil && n > 0 {
+		return n
+	}
+	return os.Getppid()
 }
 
 func isNumber(s string) bool {
