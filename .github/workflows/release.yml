@@ -1,7 +1,6 @@
 # v* タグの push で npm に公開する
 #   git tag v0.1.0 && git push origin v0.1.0
-# npm 側で Trusted Publisher（このリポジトリ・release.yml）を設定するか、
-# リポジトリの Secrets に NPM_TOKEN を登録しておく。
+# npm 側の Trusted Publisher（just npm-trust で設定済み）で OIDC 認証する。トークンは不要。
 name: release
 
 on:
@@ -24,10 +23,9 @@ jobs:
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
+      - run: npm install -g npm@latest # OIDC での公開には npm 11.5.1 以降が必要
       - run: go vet ./... && go test ./...
       - run: node npm/build.mjs "${GITHUB_REF_NAME#v}" --publish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: GitHub Release にバイナリを添付
         run: |
           cd dist/npm
