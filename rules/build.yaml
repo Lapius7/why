@@ -122,3 +122,267 @@
   fix:
     - "追加する: go get {{pkg}}"
     - "まとめて整理する: go mod tidy"
+
+- id: go-cannot-find-package
+  output: 'cannot find package "(?P<pkg>[^"]+)"|package (?P<pkg2>\S+) is not in (?:GOROOT|std)'
+  example: 'main.go:5:2: package github.com/foo/bar is not in std (/usr/local/go/src/github.com/foo/bar)'
+  cause: "Go パッケージが見つからない（go.mod に無い、または import パスの誤り）"
+  fix:
+    - "依存を整理する: go mod tidy"
+    - "個別に入れる: go get <パッケージ>"
+
+- id: go-missing-sum
+  output: 'missing go\.sum entry for module providing package (?P<pkg>\S+)'
+  example: "main.go:5:2: missing go.sum entry for module providing package golang.org/x/sync/errgroup (imported by example); to add:"
+  priority: 1
+  cause: "go.sum に {{pkg}} の記録が無い"
+  fix:
+    - "go mod tidy"
+
+- id: go-imported-not-used
+  output: '"(?P<pkg>[^"]+)" imported and not used'
+  example: 'main.go:4:2: "fmt" imported and not used'
+  priority: 1
+  cause: "パッケージ {{pkg}} を import しているが使っていない（Go ではエラー）"
+  fix:
+    - "import を消す（goimports / gopls で自動整理できる）"
+
+- id: go-mismatched-types
+  output: 'cannot use .* as .* value in|mismatched types'
+  example: "./main.go:10:14: cannot use n (variable of type int) as string value in argument to f"
+  cause: "型が合っていない"
+  fix:
+    - "変換する（strconv.Itoa / string(b) など）か、関数の引数の型を見直す"
+
+- id: go-nil-map
+  output: 'assignment to entry in nil map'
+  example: "panic: assignment to entry in nil map"
+  priority: 1
+  cause: "make していない map に書き込んだ"
+  fix:
+    - "初期化する: m := make(map[string]int)"
+
+- id: go-nil-pointer
+  output: 'invalid memory address or nil pointer dereference'
+  example: "panic: runtime error: invalid memory address or nil pointer dereference"
+  priority: 1
+  cause: "nil のポインタ（または nil の interface）を参照した"
+  fix:
+    - "スタックトレース先頭の自分のコードの行を見て、nil チェックを入れる"
+    - "err を無視した戻り値を使っていないか確認する"
+
+- id: go-index-out-of-range
+  output: 'index out of range \[(?P<i>\d+)\] with length (?P<n>\d+)'
+  example: "panic: runtime error: index out of range [3] with length 3"
+  priority: 1
+  cause: "長さ {{n}} のスライスに添字 {{i}} でアクセスした"
+  fix:
+    - "len() で長さを確認してからアクセスする"
+
+- id: go-deadlock
+  output: 'all goroutines are asleep - deadlock!'
+  example: "fatal error: all goroutines are asleep - deadlock!"
+  cause: "全ての goroutine がチャネルやロックで待ち状態になった"
+  fix:
+    - "受信側がいないチャネル送信や、close 忘れ、Wait の呼び忘れを確認する"
+
+- id: go-data-race
+  output: 'WARNING: DATA RACE'
+  example: "WARNING: DATA RACE"
+  cause: "複数の goroutine が同じ変数をロック無しで読み書きしている"
+  fix:
+    - "sync.Mutex / atomic / チャネルで保護する"
+
+- id: go-toolchain-download
+  output: 'go: downloading go(?P<ver>\S+)|toolchain not available|requires go >= (?P<ver2>\S+)'
+  example: "go: go.mod requires go >= 1.24 (running go 1.22.2; GOTOOLCHAIN=local)"
+  cause: "go.mod が求める Go のバージョンが手元より新しい"
+  fix:
+    - "mise で上げる: mise use go@latest"
+    - "自動取得を許可: GOTOOLCHAIN=auto go build"
+
+- id: rust-unresolved-import
+  output: 'error\[E0432\]: unresolved import `(?P<path>[^`]+)`'
+  example: "error[E0432]: unresolved import `serde`"
+  priority: 1
+  cause: "import「{{path}}」が解決できない（依存の追加忘れ、または feature の不足）"
+  fix:
+    - "依存を追加: cargo add <クレート名>"
+    - "モジュールなら mod 宣言とパスを確認する"
+
+- id: rust-cannot-find-value
+  output: 'error\[E0425\]: cannot find (?:value|function) `(?P<name>[^`]+)`'
+  example: "error[E0425]: cannot find value `x` in this scope"
+  priority: 1
+  cause: "「{{name}}」がこのスコープに無い"
+  fix:
+    - "綴りを確認するか use で読み込む"
+
+- id: rust-borrow
+  output: 'error\[E0(?:499|502|505|506|382|597)\]'
+  example: "error[E0382]: borrow of moved value: `s`"
+  priority: 1
+  cause: "所有権・借用のルール違反（ムーブ後の使用、同時の可変借用など）"
+  fix:
+    - "エラーの help: 行の提案を見る（.clone() / & で借用 / スコープを分ける）"
+    - "詳しい説明: rustc --explain <エラー番号>"
+
+- id: rust-mismatched-types
+  output: 'error\[E0308\]: mismatched types'
+  example: "error[E0308]: mismatched types"
+  priority: 1
+  cause: "型が合っていない"
+  fix:
+    - "expected / found の型を見比べる（&str と String、Option の包み忘れなど）"
+
+- id: rust-linker-not-found
+  output: 'linker `(?P<ld>[^`]+)` not found'
+  example: "error: linker `cc` not found"
+  priority: 1
+  cause: "リンカ（{{ld}}）が入っていない"
+  fix:
+    - "sudo apt install build-essential"
+
+- id: rust-openssl-sys
+  output: 'Could not find directory of OpenSSL installation|failed to run custom build command for `openssl-sys'
+  example: "failed to run custom build command for `openssl-sys v0.9.102`"
+  cause: "openssl-sys のビルドに OpenSSL の開発用ファイルが必要"
+  fix:
+    - "sudo apt install pkg-config libssl-dev"
+    - "または rustls を使う feature に切り替える"
+
+- id: rust-panic
+  output: "thread '(?P<th>[^']+)' panicked at (?P<loc>\\S+)"
+  example: "thread 'main' panicked at src/main.rs:4:5:"
+  cause: "{{loc}} で panic した（unwrap / expect / 添字外など）"
+  fix:
+    - "スタックトレースを見る: RUST_BACKTRACE=1 cargo run"
+    - "unwrap() を ? や match でのエラー処理に置き換える"
+
+- id: rustup-no-toolchain
+  output: 'no default toolchain configured|rustup could not choose a version'
+  example: "error: rustup could not choose a version of cargo to run, because one wasn't specified explicitly, and no default is configured."
+  cause: "rustup に既定のツールチェーンが設定されていない"
+  fix:
+    - "rustup default stable"
+
+- id: c-no-compiler
+  output: '(?:cc|gcc|g\+\+|clang|make): (?:command )?not found|make: (?:cc|gcc|g\+\+|clang): No such file or directory|No CMAKE_(?:C|CXX)_COMPILER could be found|error: command .gcc. failed'
+  example: "make: gcc: No such file or directory"
+  cause: "C/C++ コンパイラが入っていない"
+  fix:
+    - "sudo apt install build-essential"
+
+- id: cmake-package-not-found
+  output: 'Could not find a package configuration file provided by "(?P<pkg>[^"]+)"|Could NOT find (?P<pkg2>\S+)'
+  example: 'Could not find a package configuration file provided by "OpenCV" with any of the following names:'
+  cause: "CMake が依存パッケージを見つけられない"
+  fix:
+    - "開発用パッケージを入れる（例: sudo apt install lib<名前>-dev）"
+    - "入っている場所を指定: cmake -D<名前>_DIR=<path> .."
+
+- id: pkg-config-not-found
+  output: "Package '?(?P<pkg>[^'\\s]+)'?,? (?:required by .*, )?(?:was )?not found"
+  example: "Package 'gtk+-3.0', required by 'virtual:world', not found"
+  cause: "pkg-config がライブラリ {{pkg}} を見つけられない"
+  fix:
+    - "開発用パッケージを入れる: apt search {{pkg}} で -dev パッケージを探して sudo apt install"
+
+- id: c-shared-lib-missing
+  output: 'error while loading shared libraries: (?P<lib>\S+): cannot open shared object file'
+  example: "./app: error while loading shared libraries: libssl.so.1.1: cannot open shared object file: No such file or directory"
+  priority: 1
+  cause: "実行に必要な共有ライブラリ {{lib}} が見つからない"
+  fix:
+    - "入っているパッケージを探す: apt-file search {{lib}}"
+    - "独自の場所にあるなら: LD_LIBRARY_PATH=<dir> ./app（恒久的には ldconfig）"
+
+- id: glibc-version
+  output: "version `GLIBC_(?P<ver>[\\d.]+)' not found"
+  example: "./app: /lib/x86_64-linux-gnu/libc.so.6: version `GLIBC_2.38' not found (required by ./app)"
+  priority: 1
+  cause: "バイナリが手元より新しい glibc（{{ver}}）を必要としている"
+  fix:
+    - "古い環境向け（または musl / 静的リンク）のバイナリを使う"
+    - "自分でビルドするか、OS を更新する"
+
+- id: java-home
+  output: 'JAVA_HOME is not set|JAVA_HOME is set to an invalid directory|java: command not found'
+  example: "ERROR: JAVA_HOME is not set and no 'java' command could be found in your PATH."
+  cause: "Java が見つからない（JAVA_HOME 未設定または未インストール）"
+  fix:
+    - "mise で入れる: mise use java@21"
+    - "設定: export JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java))))"
+
+- id: java-unsupported-class-version
+  output: 'UnsupportedClassVersionError|class file version (?P<ver>\d+)'
+  example: "java.lang.UnsupportedClassVersionError: com/example/Main has been compiled by a more recent version of the Java Runtime (class file version 65.0), this version of the Java Runtime only recognizes class file versions up to 61.0"
+  priority: 1
+  cause: "新しい Java でビルドされたクラスを古い Java で実行している（class 65=Java 21, 61=Java 17）"
+  fix:
+    - "実行する Java を上げる: mise use java@21"
+    - "またはビルド時のターゲットを下げる（--release 17）"
+
+- id: java-class-not-found
+  output: 'ClassNotFoundException: (?P<cls>\S+)|Could not find or load main class (?P<cls2>\S+)|NoClassDefFoundError: (?P<cls3>\S+)'
+  example: "Error: Could not find or load main class com.example.Main"
+  cause: "クラスが見つからない（クラスパスの設定漏れ、パッケージ名の不一致）"
+  fix:
+    - "クラスパスを指定: java -cp target/classes:lib/* <クラス名>"
+    - "jar なら依存込みで作る（maven-shade / gradle shadowJar）"
+
+- id: java-npe
+  output: 'java\.lang\.NullPointerException'
+  example: 'Exception in thread "main" java.lang.NullPointerException: Cannot invoke "String.length()" because "s" is null'
+  priority: 1
+  cause: "null のオブジェクトのメソッドを呼んだ"
+  fix:
+    - "メッセージの because 以降とスタックトレースの先頭の自分のコードを確認する"
+
+- id: java-heap-oom
+  output: 'java\.lang\.OutOfMemoryError: (?P<kind>.+)'
+  example: "java.lang.OutOfMemoryError: Java heap space"
+  priority: 1
+  cause: "JVM のメモリが足りない（{{kind}}）"
+  fix:
+    - "ヒープを増やす: java -Xmx4g ...（Gradle なら org.gradle.jvmargs）"
+
+- id: maven-dependency
+  output: 'Could not resolve dependencies for project|Could not find artifact (?P<art>\S+)'
+  example: "[ERROR] Failed to execute goal on project app: Could not resolve dependencies for project com.example:app:jar:1.0"
+  cause: "Maven が依存を取得できない（名前・バージョンの誤り、リポジトリ設定、ネットワーク）"
+  fix:
+    - "強制的に再取得: mvn -U clean install"
+    - "~/.m2/settings.xml のミラーやプロキシを確認する"
+
+- id: gradle-build-failed
+  output: 'FAILURE: Build failed with an exception|Could not resolve all (?:files|dependencies) for configuration'
+  example: "FAILURE: Build failed with an exception."
+  priority: -1
+  cause: "Gradle のビルドに失敗した（原因は「What went wrong:」の下）"
+  fix:
+    - "詳しく見る: ./gradlew build --stacktrace --info"
+    - "キャッシュ起因なら: ./gradlew --refresh-dependencies"
+
+- id: gradle-wrapper-permission
+  output: '\./gradlew: Permission denied|\./mvnw: Permission denied'
+  example: "zsh: ./gradlew: Permission denied"
+  priority: 2
+  cause: "gradlew / mvnw に実行権限が無い"
+  fix:
+    - "chmod +x ./gradlew（git にも記録: git update-index --chmod=+x gradlew）"
+
+- id: make-circular
+  output: 'Circular .* dependency dropped'
+  example: "make: Circular all <- all dependency dropped."
+  cause: "Makefile のターゲットが自分自身に依存している"
+  fix:
+    - "該当ターゲットの依存関係を見直す"
+
+- id: make-nothing-to-be-done
+  output: "make(?:\\[\\d+\\])?: (?:Nothing to be done for )?'(?P<t>[^']+)'(?:\\.| is up to date)"
+  example: "make: 'build' is up to date."
+  cause: "ターゲットが既に最新なので何もしなかった（エラーではない）"
+  fix:
+    - "作り直すなら: make -B {{t}}（または make clean の後に make）"
+    - "ファイルを作らないターゲットなら Makefile に .PHONY: {{t}} を書く"

@@ -124,3 +124,177 @@
   fix:
     - "パッケージを明示する: npx -p <パッケージ> <コマンド>"
     - "パッケージ名の綴りを確認する: npm view <パッケージ> bin"
+
+
+- id: node-require-esm
+  output: 'ERR_REQUIRE_ESM|require\(\) of ES Module'
+  example: "Error [ERR_REQUIRE_ESM]: require() of ES Module /app/node_modules/chalk/source/index.js not supported."
+  priority: 1
+  cause: "ESM 専用のパッケージを require() で読み込もうとしている"
+  fix:
+    - "import 構文に書き換える（package.json に \"type\": \"module\" を追加、または拡張子を .mjs に）"
+    - "または CommonJS 対応の古いメジャー版を入れる（例: npm i chalk@4）"
+
+- id: node-unknown-file-extension
+  output: 'ERR_UNKNOWN_FILE_EXTENSION|Unknown file extension "\.ts"'
+  example: 'TypeError [ERR_UNKNOWN_FILE_EXTENSION]: Unknown file extension ".ts" for /app/src/index.ts'
+  cause: "Node が .ts などのファイルをそのまま実行できない"
+  fix:
+    - "tsx で実行: npx tsx src/index.ts"
+    - "Node 22.6+ なら: node --experimental-strip-types src/index.ts"
+
+- id: node-cannot-use-import
+  output: 'Cannot use import statement outside a module'
+  example: "SyntaxError: Cannot use import statement outside a module"
+  priority: 1
+  cause: "CommonJS として読み込まれたファイルで import を使っている"
+  fix:
+    - "package.json に \"type\": \"module\" を追加する、または拡張子を .mjs にする"
+    - "TypeScript なら tsconfig の module 設定を確認する"
+
+- id: node-require-not-defined
+  output: 'ReferenceError: (?:require|module|__dirname|exports) is not defined'
+  example: "ReferenceError: require is not defined in ES module scope, you can use import instead"
+  cause: "ESM（type: module）のファイルで CommonJS の require / __dirname を使っている"
+  fix:
+    - "import に書き換える。__dirname は import.meta.dirname（Node 20.11+）"
+    - "CommonJS のままにするなら拡張子を .cjs にする"
+
+- id: node-openssl-legacy
+  output: 'ERR_OSSL_EVP_UNSUPPORTED|digital envelope routines::unsupported'
+  example: "Error: error:0308010C:digital envelope routines::unsupported"
+  cause: "古い webpack などが Node 17+ の OpenSSL 3 に対応していない"
+  fix:
+    - "一時しのぎ: NODE_OPTIONS=--openssl-legacy-provider npm run build"
+    - "根本対応: react-scripts / webpack を新しい版に上げる"
+
+- id: npm-elifecycle
+  output: 'ELIFECYCLE|npm ERR! code 1|npm error code 1|Command failed with exit code'
+  example: "npm ERR! code ELIFECYCLE"
+  priority: -1
+  cause: "npm スクリプトの中で実行したコマンドが失敗した（本当の原因はそれより上のログ）"
+  fix:
+    - "出力を上にさかのぼって最初のエラーを探す"
+    - "why -r でもう一度実行すると全出力から原因を探せる"
+
+- id: npm-enoent
+  output: 'npm (?:ERR!|error) code ENOENT|npm (?:ERR!|error) syscall spawn'
+  example: "npm ERR! code ENOENT"
+  cause: "npm がファイルやコマンドを見つけられなかった"
+  fix:
+    - "node_modules を作り直す: rm -rf node_modules package-lock.json && npm install"
+
+- id: npm-econnreset
+  output: 'npm (?:ERR!|error) (?:code|errno) (?:ECONNRESET|ETIMEDOUT|EAI_AGAIN|ENOTFOUND)'
+  example: "npm ERR! code ECONNRESET"
+  cause: "npm レジストリへの接続に失敗した（ネットワーク・プロキシ・DNS）"
+  fix:
+    - "接続確認: curl -I https://registry.npmjs.org/"
+    - "プロキシ環境なら: npm config set proxy http://<proxy>:<port>"
+    - "設定を確認: npm config get registry"
+
+- id: npm-e401
+  output: 'npm (?:ERR!|error) code E401|Unable to authenticate, need: Basic|npm (?:ERR!|error) code E403'
+  example: "npm ERR! code E401"
+  cause: "npm レジストリの認証に失敗した（トークン切れ・権限なし）"
+  fix:
+    - "ログインし直す: npm login"
+    - "~/.npmrc の _authToken を確認する"
+
+- id: npm-ci-lock-mismatch
+  output: "`npm ci` can only install packages when your package.json and package-lock.json|npm ci.*in sync|Missing: .* from lock file"
+  example: "npm ERR! `npm ci` can only install packages when your package.json and package-lock.json or npm-shrinkwrap.json are in sync."
+  cause: "package.json と package-lock.json の内容が一致していない"
+  fix:
+    - "ロックファイルを更新してコミットする: npm install"
+
+- id: npm-enotempty
+  output: 'npm (?:ERR!|error) code ENOTEMPTY'
+  example: "npm ERR! code ENOTEMPTY"
+  cause: "前回の install が中断して node_modules に途中のディレクトリが残っている"
+  fix:
+    - "作り直す: rm -rf node_modules && npm install"
+
+- id: pnpm-error
+  output: 'ERR_PNPM_(?P<code>[A-Z_]+)'
+  example: " ERR_PNPM_OUTDATED_LOCKFILE  Cannot install with \"frozen-lockfile\" because pnpm-lock.yaml is not up to date"
+  cause: "pnpm のエラー（{{code}}）"
+  fix:
+    - "ロックファイルが古いなら: pnpm install --no-frozen-lockfile"
+    - "ストアの問題なら: pnpm store prune && pnpm install"
+    - "詳細: https://pnpm.io/errors"
+
+- id: yarn-lockfile
+  output: 'The lockfile would have been modified by this install|Your lockfile needs to be updated'
+  example: "YN0028: │ The lockfile would have been modified by this install, which is explicitly forbidden."
+  cause: "yarn.lock が package.json と一致していない（--immutable / --frozen-lockfile）"
+  fix:
+    - "手元で更新してコミット: yarn install"
+
+- id: vite-not-found
+  output: '(?:sh: \d+: |sh: )?(?P<bin>vite|next|tsc|jest|vitest|eslint|webpack|nodemon|react-scripts|prettier|tsx): (?:not found|command not found)'
+  example: "sh: 1: vite: not found"
+  priority: 1
+  cause: "{{bin}} がインストールされていない（node_modules が無い）"
+  fix:
+    - "依存関係を入れる: npm install"
+    - "直接使うなら: npx {{bin}}"
+
+- id: ts-cannot-find-module
+  output: "TS2307: Cannot find module '(?P<mod>[^']+)'"
+  example: "src/index.ts(1,20): error TS2307: Cannot find module 'express' or its corresponding type declarations."
+  priority: 1
+  cause: "TypeScript がモジュール「{{mod}}」またはその型定義を見つけられない"
+  fix:
+    - "入れる: npm i {{mod}}"
+    - "型定義が別なら: npm i -D @types/{{mod}}"
+    - "パスエイリアスなら tsconfig.json の paths / baseUrl を確認"
+
+- id: ts-implicit-any-module
+  output: "TS7016: Could not find a declaration file for module '(?P<mod>[^']+)'"
+  example: "error TS7016: Could not find a declaration file for module 'lodash'."
+  priority: 1
+  cause: "モジュール「{{mod}}」の型定義がない"
+  fix:
+    - "npm i -D @types/{{mod}}"
+    - "型定義が無いなら d.ts に declare module '{{mod}}'; を書く"
+
+- id: next-build-error
+  output: 'Type error: |Failed to compile\.|Module not found: Can.t resolve .(?P<mod>[^'']+)'
+  example: "Module not found: Can't resolve './components/Header'"
+  cause: "ビルド時にモジュールが見つからない、または型エラーがある"
+  fix:
+    - "パスの綴り・大文字小文字を確認する（Linux は区別する）"
+    - "パッケージなら: npm install"
+
+- id: node-fetch-failed
+  output: 'TypeError: fetch failed'
+  example: "TypeError: fetch failed"
+  cause: "Node の fetch で接続に失敗した（詳細は直後の cause: に出る）"
+  fix:
+    - "cause の ECONNREFUSED / ENOTFOUND などを確認する"
+    - "localhost で繋がらないなら 127.0.0.1 を試す（IPv6 の ::1 に向いている場合がある）"
+
+- id: node-max-listeners
+  output: 'MaxListenersExceededWarning'
+  example: "(node:1234) MaxListenersExceededWarning: Possible EventEmitter memory leak detected."
+  cause: "イベントリスナーを登録しすぎている（リーク気味の警告）"
+  fix:
+    - "リスナーの登録を重複させていないか確認する（removeListener / once）"
+
+- id: node-unhandled-rejection
+  output: 'UnhandledPromiseRejection|unhandledRejection'
+  example: "[UnhandledPromiseRejection: This error originated either by throwing inside of an async function without a catch block]"
+  priority: -1
+  cause: "catch されなかった Promise のエラーでプロセスが終了した"
+  fix:
+    - "該当の await を try/catch で囲むか、.catch() を付ける"
+    - "上のスタックトレースから発生箇所を探す"
+
+- id: bun-error
+  prog: bun
+  output: 'error: Cannot find (?:module|package) "(?P<mod>[^"]+)"'
+  example: 'error: Cannot find module "hono" from "/app/src/index.ts"'
+  cause: "bun がモジュール「{{mod}}」を見つけられない"
+  fix:
+    - "入れる: bun add {{mod}}"

@@ -119,3 +119,154 @@
   fix:
     - "確認する: docker inspect <コンテナ> --format '{{.State.OOMKilled}}'"
     - "メモリ上限を上げる: --memory 2g（Docker Desktop なら Settings → Resources）"
+
+- id: compose-v1-missing
+  output: 'docker-compose: (?:command )?not found|unknown shorthand flag: .c. in -compose|docker: .compose. is not a docker command'
+  example: "docker: 'compose' is not a docker command."
+  priority: 1
+  cause: "Docker Compose（v2 プラグイン）が入っていない"
+  fix:
+    - "Ubuntu: sudo apt install docker-compose-plugin（使い方は docker compose ...）"
+    - "Docker Desktop なら WSL 統合（Settings → Resources → WSL integration）を有効にする"
+
+- id: compose-yaml-invalid
+  output: 'yaml: line \d+|services\.(?P<svc>[\w.-]+) (?:Additional property|must be a mapping)|validating .*compose.*\.ya?ml'
+  example: "validating /app/compose.yaml: services.web Additional property prot is not allowed"
+  cause: "compose ファイルの書き方が間違っている（インデントや項目名の綴り）"
+  fix:
+    - "検証: docker compose config"
+
+- id: compose-service-not-found
+  output: 'no such service: (?P<svc>\S+)'
+  example: "no such service: api"
+  cause: "サービス「{{svc}}」が compose ファイルに無い"
+  fix:
+    - "サービス一覧: docker compose config --services"
+
+- id: compose-orphan
+  output: 'Found orphan containers'
+  example: "WARN[0000] Found orphan containers ([app-old-1]) for this project."
+  cause: "compose ファイルから消したサービスのコンテナが残っている"
+  fix:
+    - "docker compose up --remove-orphans"
+
+- id: compose-env-not-set
+  output: 'The "(?P<var>\w+)" variable is not set'
+  example: 'WARN[0000] The "DB_PASSWORD" variable is not set. Defaulting to a blank string.'
+  cause: "環境変数 {{var}} が設定されていない（空文字として扱われた）"
+  fix:
+    - "compose ファイルと同じ場所の .env に {{var}}=... を書く"
+
+- id: compose-unhealthy
+  output: 'dependency failed to start: container (?P<c>\S+) is unhealthy|container (?P<c2>\S+) is unhealthy'
+  example: "dependency failed to start: container app-db-1 is unhealthy"
+  cause: "依存コンテナのヘルスチェックが通らなかった"
+  fix:
+    - "ログを見る: docker logs {{c}}"
+    - "healthcheck の設定（コマンド・start_period）を見直す"
+
+- id: docker-build-copy-failed
+  output: 'COPY failed|failed to compute cache key: .*not found|"/(?P<path>[^"]+)": not found'
+  example: 'ERROR: failed to solve: failed to compute cache key: failed to calculate checksum of ref abc::xyz: "/package.json": not found'
+  priority: 1
+  cause: "COPY するファイルがビルドコンテキストに無い（パス違い、または .dockerignore で除外）"
+  fix:
+    - "docker build を実行した場所（コンテキスト）からの相対パスか確認する"
+    - ".dockerignore で除外していないか確認する"
+
+- id: docker-build-run-failed
+  output: 'process "(?P<cmd>[^"]+)" did not complete successfully: exit code: (?P<code>\d+)'
+  example: 'ERROR: failed to solve: process "/bin/sh -c npm ci" did not complete successfully: exit code: 1'
+  cause: "Dockerfile の RUN（{{cmd}}）が終了コード {{code}} で失敗した"
+  fix:
+    - "上のログで失敗したコマンドの出力を確認する"
+    - "詳しく見る: docker build --progress=plain --no-cache ."
+
+- id: docker-no-dockerfile
+  output: 'failed to read dockerfile|open Dockerfile: no such file or directory|unable to prepare context: unable to evaluate symlinks in Dockerfile path'
+  example: "ERROR: failed to solve: failed to read dockerfile: open Dockerfile: no such file or directory"
+  cause: "Dockerfile が見つからない"
+  fix:
+    - "Dockerfile のある場所で実行する、または指定する: docker build -f path/Dockerfile ."
+
+- id: docker-exec-not-running
+  output: 'Container (?P<c>\S+) is not running|is not running|No such container: (?P<c2>\S+)'
+  example: "Error response from daemon: Container 1a2b3c4d is not running"
+  cause: "コンテナが止まっている（または存在しない）"
+  fix:
+    - "状態とログを確認: docker ps -a && docker logs <コンテナ>"
+    - "起動: docker start <コンテナ>"
+
+- id: docker-exec-no-shell
+  output: 'exec: "(?P<bin>bash|sh)": executable file not found in \$PATH'
+  example: 'OCI runtime exec failed: exec failed: unable to start container process: exec: "bash": executable file not found in $PATH: unknown'
+  priority: 1
+  cause: "コンテナのイメージに {{bin}} が入っていない（alpine や distroless など）"
+  fix:
+    - "sh を試す: docker exec -it <コンテナ> sh"
+    - "distroless ならデバッグ用: docker debug <コンテナ>"
+
+- id: docker-entrypoint-not-found
+  output: 'exec: "(?P<bin>[^"]+)": (?:executable file not found|stat .*: no such file)|exec /[^:]+: no such file or directory'
+  example: 'docker: Error response from daemon: failed to create task for container: exec: "/app/start.sh": stat /app/start.sh: no such file or directory: unknown.'
+  cause: "コンテナで実行するコマンドが見つからない（パス違い、CRLF の shebang、アーキテクチャ違いも同じ表示）"
+  fix:
+    - "イメージの中身を確認: docker run --rm -it --entrypoint sh <image>"
+    - "シェルスクリプトなら改行コードを LF にする"
+
+- id: docker-rate-limit
+  output: 'toomanyrequests|You have reached your (?:unauthenticated )?pull rate limit'
+  example: "toomanyrequests: You have reached your unauthenticated pull rate limit."
+  priority: 1
+  cause: "Docker Hub の pull 回数制限に達した"
+  fix:
+    - "ログインすると上限が上がる: docker login"
+    - "時間をおいて再実行する"
+
+- id: docker-volume-in-use
+  output: 'volume is in use'
+  example: "Error response from daemon: remove app_data: volume is in use - [1a2b3c]"
+  cause: "削除しようとしたボリュームを使っているコンテナがある"
+  fix:
+    - "使っているコンテナを止めて消す: docker ps -a --filter volume=<名前>"
+
+- id: docker-network-in-use
+  output: 'network (?P<n>\S+) (?:id \S+ )?has active endpoints|Pool overlaps with other one on this address space'
+  example: "Error response from daemon: error while removing network: network app_default id 1a2b has active endpoints"
+  cause: "ネットワークを使うコンテナが残っている、またはアドレス範囲が重複している"
+  fix:
+    - "docker compose down で片付ける"
+    - "未使用のネットワークを消す: docker network prune"
+
+- id: docker-credential-helper
+  output: 'error getting credentials|docker-credential-desktop\.exe: executable file not found|docker-credential-\S+: not found'
+  example: 'error getting credentials - err: exec: "docker-credential-desktop.exe": executable file not found in $PATH, out: ``'
+  priority: 1
+  cause: "Docker の認証ヘルパーが見つからない（Docker Desktop の設定が WSL に残っている）"
+  fix:
+    - "~/.docker/config.json の \"credsStore\" の行を消す"
+
+- id: docker-exec-user-process
+  output: 'exec user process caused: exec format error|exec format error'
+  example: "exec /usr/local/bin/app: exec format error"
+  priority: 1
+  prog: 'docker(?:-compose)?'
+  cause: "イメージの CPU アーキテクチャが違う（arm64 と amd64 など）"
+  fix:
+    - "対応する platform でビルド・実行: --platform linux/amd64"
+
+- id: docker-cgroup-wsl
+  output: 'cgroups: cgroup mountpoint does not exist|failed to create shim task'
+  example: "Error response from daemon: failed to create shim task: OCI runtime create failed: runc create failed: unable to start container process: error during container init"
+  priority: -1
+  cause: "コンテナの起動に失敗した（WSL の cgroup 設定や runc の問題）"
+  fix:
+    - "Docker を再起動: sudo service docker restart（Desktop なら再起動）"
+    - "WSL を再起動: wsl --shutdown（Windows 側で）"
+
+- id: buildx-missing
+  output: "docker: 'buildx' is not a docker command|BuildKit is enabled but the buildx component is missing"
+  example: "ERROR: BuildKit is enabled but the buildx component is missing or broken."
+  cause: "buildx プラグインが入っていない"
+  fix:
+    - "sudo apt install docker-buildx-plugin"
