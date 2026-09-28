@@ -79,10 +79,10 @@ func run(args []string) int {
 			o.argv = args[i+1:]
 			i = len(args)
 		case a == "-h" || a == "--help":
-			fmt.Print(usage)
+			fmt.Print(usage + "\n" + lapiusFooter())
 			return 0
 		case a == "-v" || a == "--version":
-			fmt.Println("why", version)
+			fmt.Print("why ", version, "\n", lapiusFooter())
 			return 0
 		case a == "-r" || a == "--rerun":
 			o.rerun = true
