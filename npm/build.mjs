@@ -26,7 +26,7 @@ if (!/^\d+\.\d+\.\d+(-[\w.]+)?$/.test(version ?? '')) {
   process.exit(2);
 }
 
-const main = JSON.parse(readFileSync(join(root, 'npm', 'why', 'package.json'), 'utf8'));
+const main = JSON.parse(readFileSync(join(root, 'npm', 'package', 'package.json'), 'utf8'));
 const run = (cmd, args, opts = {}) => execFileSync(cmd, args, { stdio: 'inherit', ...opts });
 
 // 途中で失敗しても再実行で続きから公開できるように、公開済みの版は飛ばす
