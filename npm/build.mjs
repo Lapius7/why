@@ -67,7 +67,7 @@ for (const [os, cpu, goos, goarch] of targets) {
 }
 
 const mainDir = join(out, 'why');
-cpSync(join(root, 'npm', 'why'), mainDir, { recursive: true });
+cpSync(join(root, 'npm', 'package'), mainDir, { recursive: true });
 cpSync(join(root, 'README.md'), join(mainDir, 'README.md'));
 cpSync(join(root, 'LICENSE'), join(mainDir, 'LICENSE'));
 chmodSync(join(mainDir, 'bin', 'why'), 0o755);
