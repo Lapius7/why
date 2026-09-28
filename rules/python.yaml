@@ -76,3 +76,161 @@
   cause: "Python の例外 {{exc}}: {{msg}}"
   fix:
     - "Traceback の一番下にある自分のファイルの行から原因を追う"
+
+- id: py-indentation
+  output: 'IndentationError: (?P<msg>.+)|TabError: '
+  example: "IndentationError: unexpected indent"
+  priority: 1
+  cause: "インデントが崩れている（スペースとタブの混在、ずれ）"
+  fix:
+    - "エラー行の前後でスペースとタブが混在していないか確認する"
+    - "エディタでタブをスペース 4 つに統一する（ruff format / black でも可）"
+
+- id: py-name-error
+  output: "NameError: name '(?P<name>[^']+)' is not defined"
+  example: "NameError: name 'np' is not defined"
+  priority: 1
+  cause: "「{{name}}」が定義されていない（import 忘れ・綴り間違い・スコープ外）"
+  fix:
+    - "import を追加する、または変数名の綴りを確認する"
+
+- id: py-attribute-error-none
+  output: "AttributeError: 'NoneType' object has no attribute '(?P<attr>[^']+)'"
+  example: "AttributeError: 'NoneType' object has no attribute 'group'"
+  priority: 1
+  cause: "None に対して .{{attr}} を呼んでいる（直前の処理が None を返した）"
+  fix:
+    - "値を取得した関数の戻り値を確認し、None の場合の分岐を入れる"
+
+- id: py-attribute-error
+  output: "AttributeError: module '(?P<mod>[^']+)' has no attribute '(?P<attr>[^']+)'"
+  example: "AttributeError: module 'numpy' has no attribute 'float'"
+  priority: 1
+  cause: "モジュール「{{mod}}」に「{{attr}}」が無い（バージョン違い、または自作ファイルの名前が衝突）"
+  fix:
+    - "同名のファイル（例: {{mod}}.py）を自分で作っていないか確認する"
+    - "バージョンを確認: pip show {{mod}}"
+
+- id: py-import-error-name
+  output: "ImportError: cannot import name '(?P<name>[^']+)' from '(?P<mod>[^']+)'"
+  example: "ImportError: cannot import name 'soft_unicode' from 'markupsafe' (/venv/lib/python3.12/site-packages/markupsafe/__init__.py)"
+  priority: 1
+  cause: "「{{mod}}」に「{{name}}」が無い（バージョンが合わない、または循環 import）"
+  fix:
+    - "対応するバージョンを入れる: pip install -U {{mod}}（または古い版に固定）"
+    - "partially initialized と出ていれば循環 import を解消する"
+
+- id: py-type-error-args
+  output: 'TypeError: (?P<func>\S+)\(\) (?:takes|missing|got an unexpected)'
+  example: "TypeError: main() missing 1 required positional argument: 'path'"
+  cause: "関数 {{func}} の引数の数・名前が合っていない"
+  fix:
+    - "関数の定義と呼び出し側の引数を見比べる"
+
+- id: py-key-error
+  output: "KeyError: (?P<key>.+)"
+  example: "KeyError: 'OPENAI_API_KEY'"
+  cause: "辞書（または環境変数）にキー {{key}} が無い"
+  fix:
+    - "環境変数なら設定する: export 名前=値（.env を読み込む場合はその設定も）"
+    - "無くても動かすなら dict.get() / os.environ.get() を使う"
+
+- id: py-file-not-found
+  output: "FileNotFoundError: \\[Errno 2\\] No such file or directory: '(?P<path>[^']+)'"
+  example: "FileNotFoundError: [Errno 2] No such file or directory: 'data/input.csv'"
+  priority: 1
+  cause: "ファイル「{{path}}」が見つからない（相対パスは実行時のカレントディレクトリ基準）"
+  fix:
+    - "pwd で現在地を確認する、またはスクリプト基準にする: Path(__file__).parent / '{{path}}'"
+
+- id: py-recursion
+  output: 'RecursionError: maximum recursion depth exceeded'
+  example: "RecursionError: maximum recursion depth exceeded while calling a Python object"
+  cause: "再帰が深すぎる（終了条件の抜け、または循環参照）"
+  fix:
+    - "再帰の終了条件を確認する"
+    - "本当に深い再帰が必要ならループに書き換える（sys.setrecursionlimit は最終手段）"
+
+- id: py-no-pip
+  output: 'No module named pip|pip: command not found|pip3: command not found'
+  example: "/usr/bin/python3: No module named pip"
+  priority: 1
+  cause: "pip が入っていない"
+  fix:
+    - "apt で入れる: sudo apt install python3-pip"
+    - "または: python3 -m ensurepip --upgrade（venv の中で）"
+    - "uv を使うなら: uv pip install <package>"
+
+- id: py-no-venv-module
+  output: 'The virtual environment was not created successfully because ensurepip is not|No module named venv'
+  example: "The virtual environment was not created successfully because ensurepip is not available."
+  cause: "venv を作るためのパッケージが入っていない（Debian/Ubuntu）"
+  fix:
+    - "sudo apt install python3-venv（バージョン付き例: python3.12-venv）"
+
+- id: pip-build-wheel-failed
+  output: 'Failed building wheel for (?P<pkg>\S+)|Failed to build (?P<pkg2>\S+)|error: subprocess-exited-with-error'
+  example: "  ERROR: Failed building wheel for psycopg2"
+  cause: "パッケージのビルドに失敗した（C コンパイラや開発用ヘッダが無いことが多い）"
+  fix:
+    - "ビルドツールを入れる: sudo apt install build-essential python3-dev"
+    - "バイナリ版があれば使う（例: psycopg2-binary）"
+    - "Python が新しすぎて wheel が無い場合はバージョンを下げる"
+
+- id: pip-hash-mismatch
+  output: 'THESE PACKAGES DO NOT MATCH THE HASHES'
+  example: "ERROR: THESE PACKAGES DO NOT MATCH THE HASHES FROM THE REQUIREMENTS FILE."
+  cause: "ダウンロードしたパッケージのハッシュが requirements と一致しない"
+  fix:
+    - "キャッシュを消して再実行: pip cache purge"
+    - "requirements のハッシュを作り直す（pip-compile --generate-hashes）"
+
+- id: pip-resolution-impossible
+  output: 'ResolutionImpossible|conflicting dependencies'
+  example: "ERROR: ResolutionImpossible: for help visit https://pip.pypa.io/en/latest/topics/dependency-resolution/"
+  cause: "パッケージ同士の依存バージョンが両立しない"
+  fix:
+    - "バージョン指定（==）を緩める"
+    - "新しい venv で必要最小限から入れ直す"
+
+- id: pytest-no-tests
+  prog: 'pytest|py\.test'
+  code: [5]
+  cause: "pytest がテストを 1 件も見つけられなかった"
+  fix:
+    - "ファイル名が test_*.py / *_test.py、関数名が test_ で始まっているか確認する"
+    - "対象を指定する: pytest tests/"
+
+- id: pytest-failed
+  prog: 'pytest|py\.test'
+  code: [1]
+  priority: -1
+  cause: "テストが失敗した"
+  fix:
+    - "失敗したテストだけ再実行: pytest --lf"
+    - "詳しく見る: pytest -x -vv"
+
+- id: uv-error
+  prog: 'uv|uvx'
+  output: 'No solution found when resolving dependencies|Because .* depends on'
+  example: "  × No solution found when resolving dependencies:"
+  cause: "uv が依存関係を解決できなかった"
+  fix:
+    - "表示された依存関係の説明を読んでバージョン指定を緩める"
+    - "Python のバージョン指定（requires-python）も確認する"
+
+- id: conda-not-init
+  output: "CondaError: Run 'conda init' before 'conda activate'|conda: command not found"
+  example: "CondaError: Run 'conda init' before 'conda activate'"
+  cause: "conda がシェルに組み込まれていない"
+  fix:
+    - "conda init zsh（bash なら bash）→ シェルを開き直す"
+
+- id: py-permission-site-packages
+  output: 'Could not install packages due to an OSError: \[Errno 13\] Permission denied'
+  example: "ERROR: Could not install packages due to an OSError: [Errno 13] Permission denied: '/usr/lib/python3/dist-packages/x'"
+  priority: 1
+  cause: "システムの Python に書き込もうとして権限が無い"
+  fix:
+    - "venv を使う: python3 -m venv .venv && . .venv/bin/activate"
+    - "ツールなら pipx install / uv tool install"

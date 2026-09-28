@@ -153,3 +153,329 @@
   fix:
     - "検索する: brew search {{name}}"
     - "Linux なら apt search {{name}} や mise で入らないかも確認する"
+
+- id: ssh-host-key-verification
+  output: 'Host key verification failed'
+  example: "Host key verification failed."
+  cause: "接続先のホスト鍵を確認できなかった（初回接続で yes と答えていない、または known_hosts に不一致）"
+  fix:
+    - "初回なら対話的に一度接続して yes を答える: ssh <host>"
+    - "サーバーを作り直したなら古い鍵を消す: ssh-keygen -R <host>"
+
+- id: ssh-too-many-auth
+  output: 'Too many authentication failures'
+  example: "Received disconnect from 192.0.2.1 port 22:2: Too many authentication failures"
+  cause: "ssh-agent の鍵を順に試しすぎてサーバーに切断された"
+  fix:
+    - "使う鍵を固定: ssh -o IdentitiesOnly=yes -i ~/.ssh/<鍵> <host>（~/.ssh/config にも書ける）"
+
+- id: ssh-connection-closed
+  output: 'Connection closed by (?P<host>\S+) port \d+|kex_exchange_identification: (?:read: )?Connection reset|Connection reset by peer'
+  example: "kex_exchange_identification: read: Connection reset by peer"
+  cause: "SSH サーバー側に接続を切られた（fail2ban などによるブロック、sshd の停止、MaxStartups）"
+  fix:
+    - "詳しく見る: ssh -vvv <host>"
+    - "少し時間をおく。サーバー側のログ（journalctl -u ssh）を確認する"
+
+- id: ssh-no-route
+  output: 'ssh: connect to host (?P<host>\S+) port (?P<port>\d+): (?P<why>Connection timed out|No route to host|Connection refused)'
+  example: "ssh: connect to host 192.0.2.1 port 22: Connection timed out"
+  priority: 1
+  cause: "{{host}}:{{port}} に SSH 接続できない（{{why}}）"
+  fix:
+    - "サーバーが起動しているか、IP・ポートが合っているか確認する"
+    - "Connection refused なら sshd が動いていない: sudo systemctl status ssh"
+    - "timed out ならファイアウォールやネットワークを確認する"
+
+- id: ssh-could-not-resolve
+  output: 'ssh: Could not resolve hostname (?P<host>\S+):'
+  example: "ssh: Could not resolve hostname myserver: Name or service not known"
+  priority: 1
+  cause: "ホスト名「{{host}}」を解決できない"
+  fix:
+    - "~/.ssh/config の Host 名と綴りを確認する"
+    - "IP アドレスで接続してみる"
+
+- id: ssh-agent-not-running
+  output: 'Could not open a connection to your authentication agent|Error connecting to agent'
+  example: "Could not open a connection to your authentication agent."
+  cause: "ssh-agent が起動していない"
+  fix:
+    - "起動する: eval \"$(ssh-agent -s)\" && ssh-add"
+
+- id: scp-no-such-file
+  prog: 'scp|rsync'
+  output: 'No such file or directory'
+  example: "scp: /home/user/file.txt: No such file or directory"
+  priority: 1
+  cause: "コピー元（またはリモート側のコピー先ディレクトリ）が存在しない"
+  fix:
+    - "リモートのパスを確認: ssh <host> ls <path>"
+
+- id: rsync-not-found-remote
+  output: 'rsync: (?:command )?not found|rsync error: remote command not found'
+  example: "bash: line 1: rsync: command not found"
+  cause: "リモート側に rsync が入っていない"
+  fix:
+    - "リモートに入れる: sudo apt install rsync"
+
+- id: systemctl-unit-not-found
+  output: 'Unit (?P<unit>\S+) (?:could not be found|not found)'
+  example: "Failed to start nginx.service: Unit nginx.service not found."
+  cause: "サービス「{{unit}}」が無い（未インストール、または名前違い）"
+  fix:
+    - "一覧から探す: systemctl list-unit-files | grep <名前>"
+
+- id: systemctl-failed
+  output: 'Job for (?P<unit>\S+) failed because'
+  example: 'Job for nginx.service failed because the control process exited with error code.'
+  cause: "サービス {{unit}} の起動に失敗した"
+  fix:
+    - "理由を見る: systemctl status {{unit}} && journalctl -xeu {{unit}}"
+
+- id: systemctl-interactive-auth
+  output: 'Interactive authentication required|Access denied'
+  prog: systemctl
+  example: "Failed to start nginx.service: Interactive authentication required."
+  cause: "サービスの操作には root 権限が必要"
+  fix:
+    - "sudo を付けて実行する"
+
+- id: curl-3
+  prog: curl
+  code: [3]
+  cause: "URL の形式が正しくない"
+  fix:
+    - "スキーム（https://）や空白・特殊文字を確認し、URL を引用符で囲む"
+
+- id: curl-18
+  prog: curl
+  code: [18]
+  cause: "ダウンロードの途中で転送が切れた"
+  fix:
+    - "続きから再開: curl -C - -O <URL>"
+
+- id: curl-23
+  prog: curl
+  code: [23]
+  cause: "受け取ったデータを書き込めなかった（ディスク容量・権限、またはパイプ先が先に終了）"
+  fix:
+    - "パイプで head 等に渡しているなら無視してよい"
+    - "書き込み先の権限と空き容量を確認: df -h ."
+
+- id: curl-47
+  prog: curl
+  code: [47]
+  cause: "リダイレクトが多すぎる（ループしている）"
+  fix:
+    - "リダイレクト先を確認: curl -sIL <URL>"
+
+- id: curl-52
+  prog: curl
+  code: [52]
+  cause: "サーバーが何も返さずに接続を閉じた（HTTP と HTTPS の取り違え、サーバー側のクラッシュ）"
+  fix:
+    - "http:// と https:// を取り違えていないか、ポートが合っているか確認する"
+
+- id: curl-56
+  prog: curl
+  code: [56]
+  cause: "データの受信中に接続が切れた"
+  fix:
+    - "再実行する。プロキシ・VPN 経由なら外して試す"
+
+- id: wget-error
+  prog: wget
+  output: 'ERROR (?P<status>\d{3}): (?P<msg>.+)'
+  example: "2026-09-28 12:00:00 ERROR 404: Not Found."
+  cause: "サーバーが HTTP {{status}}（{{msg}}）を返した"
+  fix:
+    - "URL を確認する（404 は存在しない、403 は権限なし、5xx はサーバー側の問題）"
+
+- id: wget-8
+  prog: wget
+  code: [8]
+  priority: -1
+  cause: "サーバーがエラーを返した（404 など）"
+  fix:
+    - "URL を確認する"
+
+- id: wget-4
+  prog: wget
+  code: [4]
+  cause: "ネットワークの失敗（DNS・接続・タイムアウト）"
+  fix:
+    - "接続確認: curl -I <URL>"
+
+- id: tar-not-gzip
+  output: 'gzip: stdin: not in gzip format|This does not look like a tar archive'
+  example: "gzip: stdin: not in gzip format"
+  cause: "ファイルが gzip / tar 形式ではない（HTML のエラーページを保存した、形式違いなど）"
+  fix:
+    - "中身を確認: file <ファイル>"
+    - "形式を自動判定させる: tar xf <ファイル>（.tar.xz / .tar.zst もこれで展開できる）"
+
+- id: tar-zstd-missing
+  output: 'zstd: Cannot exec|xz: Cannot exec|Cannot exec: No such file or directory'
+  example: "tar (child): zstd: Cannot exec: No such file or directory"
+  cause: "展開に必要な圧縮ツールが入っていない"
+  fix:
+    - "sudo apt install zstd xz-utils"
+
+- id: unzip-not-zip
+  output: 'End-of-central-directory signature not found|cannot find zipfile directory'
+  example: "  End-of-central-directory signature not found.  Either this file is not"
+  cause: "zip ファイルが壊れているか、zip ではない（ダウンロード途中、HTML のページなど）"
+  fix:
+    - "中身を確認: file <ファイル>"
+    - "もう一度ダウンロードする"
+
+- id: locale-warning
+  output: 'setlocale: LC_ALL: cannot change locale|Setting locale failed|cannot set LC_(?:ALL|CTYPE)'
+  example: "bash: warning: setlocale: LC_ALL: cannot change locale (ja_JP.UTF-8)"
+  cause: "指定されたロケールが生成されていない"
+  fix:
+    - "生成する: sudo locale-gen ja_JP.UTF-8 && sudo update-locale"
+    - "または対応済みのロケールにする: export LANG=C.UTF-8"
+
+- id: chmod-not-permitted
+  output: "chmod: changing permissions of '(?P<path>[^']+)': Operation not permitted"
+  example: "chmod: changing permissions of '/mnt/c/Users/me/run.sh': Operation not permitted"
+  priority: 1
+  cause: "「{{path}}」の権限を変更できない（所有者が違う、または Windows 側のドライブ）"
+  fix:
+    - "所有者が違うなら sudo chmod ..."
+    - "/mnt/c 以下なら /etc/wsl.conf の [automount] options = \"metadata\" を設定して WSL を再起動"
+
+- id: mnt-c-slow-permission
+  cmd: '/mnt/[a-z]/'
+  code: [126]
+  cause: "Windows 側のドライブ（/mnt/c など）のファイルは実行権限が付けられないことがある"
+  fix:
+    - "WSL のホーム（~）以下にコピーして実行する"
+
+- id: mise-not-installed
+  output: 'mise (?:ERROR|WARN).*(?:[Nn]ot installed|not found in mise tool registry)|No version is set for command \S+'
+  example: "mise ERROR Tool not installed: node@24"
+  cause: "mise で指定したツールのバージョンが入っていない"
+  fix:
+    - "入れる: mise install"
+    - "現在の状態: mise ls"
+
+- id: mise-untrusted
+  output: 'Config files in (?P<path>\S+) are not trusted|is not trusted\. Trust it'
+  example: "mise ERROR Config files in ~/proj/mise.toml are not trusted."
+  priority: 1
+  cause: "このディレクトリの mise 設定ファイルを信頼していない"
+  fix:
+    - "中身を確認してから: mise trust"
+
+- id: zsh-command-not-found-typo
+  output: 'zsh: correct .(?P<bad>\S+). to .(?P<good>\S+).'
+  example: "zsh: correct 'gti' to 'git' [nyae]?"
+  cause: "zsh がコマンド名の打ち間違いを検出した"
+  fix:
+    - "y で {{good}} として実行する"
+
+- id: bash-unbound-variable
+  output: '(?P<var>\w+): unbound variable'
+  example: "./deploy.sh: line 3: TARGET: unbound variable"
+  priority: 1
+  cause: "set -u のスクリプトで、未設定の変数 {{var}} を使った"
+  fix:
+    - "変数を設定して実行する: {{var}}=... ./script.sh"
+    - "空を許すなら ${{{var}}:-} と書く"
+
+- id: bash-bad-array-subscript
+  output: 'bad array subscript|parameter null or not set'
+  example: "./run.sh: line 5: 1: parameter null or not set"
+  cause: "必須の引数や変数が空のまま使われた（${1:?} など）"
+  fix:
+    - "必要な引数を付けて実行する（スクリプトの使い方を確認）"
+
+- id: bash-too-many-args
+  output: '(?:test|\[): too many arguments|binary operator expected|unary operator expected'
+  example: "./run.sh: line 7: [: too many arguments"
+  priority: 1
+  cause: "[ ] の中で空白を含む（または空の）変数を引用符で囲んでいない"
+  fix:
+    - "変数を \"$var\" のように囲むか、[[ ]] を使う"
+
+- id: bash-integer-expected
+  output: 'integer expression expected'
+  example: "./run.sh: line 3: [: abc: integer expression expected"
+  cause: "数値比較（-eq / -lt など）に数値以外を渡した"
+  fix:
+    - "文字列比較なら = を使う。値が空や数値以外でないか確認する"
+
+- id: bash-heredoc-eof
+  output: 'here-document at line \d+ delimited by end-of-file|unexpected end of file'
+  example: "./run.sh: line 10: warning: here-document at line 3 delimited by end-of-file (wanted `EOF')"
+  cause: "ヒアドキュメントの終端（EOF など）や if/fi・do/done の対応が取れていない"
+  fix:
+    - "終端の行に前後の空白や CR（\\r）が付いていないか確認する"
+    - "チェック: bash -n <script> / shellcheck <script>"
+
+- id: sed-unterminated
+  output: "sed: -e expression #\\d+, char \\d+: (?P<msg>.+)"
+  example: "sed: -e expression #1, char 9: unterminated `s' command"
+  cause: "sed の式が正しくない（{{msg}}）"
+  fix:
+    - "区切り文字（/）がパスなどに含まれるなら s|a|b| のように別の文字を使う"
+    - "式全体を単一引用符で囲む"
+
+- id: jq-parse-error
+  output: 'jq: error \(at .*\): (?P<msg>.+)|parse error: (?P<msg2>.+) at line'
+  example: "parse error: Invalid numeric literal at line 1, column 10"
+  prog: 'jq|yq'
+  cause: "入力が JSON ではない、またはフィルタで型が合わない"
+  fix:
+    - "入力を確認する（curl ならエラーページを受け取っていないか: curl -i）"
+    - "null を許すなら .foo? や // empty を使う"
+
+- id: xargs-exit-123
+  prog: xargs
+  code: [123]
+  cause: "xargs から呼んだコマンドのどれかが失敗した"
+  fix:
+    - "どれが失敗したかを見る: xargs -t（実行するコマンドを表示）"
+
+- id: cron-no-path
+  output: '/bin/sh: 1: (?P<bin>\S+): not found'
+  example: "/bin/sh: 1: node: not found"
+  cause: "{{bin}} が見つからない（cron や sh からは ~/.zshrc の PATH が読まれない）"
+  fix:
+    - "フルパスで書く: $(which {{bin}})"
+    - "crontab の先頭に PATH=... を書く"
+
+- id: fuse-missing
+  output: 'AppImages require FUSE|fuse: device not found|dlopen\(\): error loading libfuse\.so\.2'
+  example: "dlopen(): error loading libfuse.so.2"
+  cause: "AppImage の実行に必要な FUSE（libfuse2）が無い"
+  fix:
+    - "sudo apt install libfuse2t64（古い Ubuntu は libfuse2）"
+    - "入れずに実行: ./app.AppImage --appimage-extract-and-run"
+
+- id: display-not-set
+  output: 'cannot open display|Missing X server or \$DISPLAY|Could not connect to any X display|qt\.qpa\.xcb: could not connect to display'
+  example: "Error: cannot open display: :0"
+  cause: "GUI を表示する先（DISPLAY）が無い"
+  fix:
+    - "WSL2 なら WSLg が有効か確認（wsl --update 後、wsl --shutdown）"
+    - "SSH 経由なら ssh -X / -Y で接続する"
+
+- id: wsl-mnt-io-error
+  output: 'Input/output error'
+  cmd: '/mnt/[a-z]/'
+  example: "ls: reading directory '/mnt/c/x': Input/output error"
+  cause: "Windows 側のドライブとの連携でエラーが起きた"
+  fix:
+    - "Windows 側で wsl --shutdown して開き直す"
+
+- id: ulimit-core
+  output: 'core dumped'
+  example: "Segmentation fault (core dumped)"
+  priority: -1
+  cause: "プロセスが異常終了してコアダンプを出した"
+  fix:
+    - "原因箇所を調べる: coredumpctl gdb（または gdb <実行ファイル> core）"

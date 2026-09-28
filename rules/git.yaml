@@ -211,3 +211,177 @@
   cause: "まだ 1 つもコミットがない"
   fix:
     - "最初のコミットを作る: git add . && git commit -m \"initial commit\""
+
+- id: git-detached-head
+  output: "You are in 'detached HEAD' state|HEAD detached at"
+  example: "You are in 'detached HEAD' state. You can look around, make experimental"
+  cause: "ブランチではなく特定のコミットを直接チェックアウトしている（detached HEAD）"
+  fix:
+    - "ブランチに戻る: git switch -"
+    - "今の状態で作業を続けるならブランチを作る: git switch -c <新しいブランチ名>"
+
+- id: git-shallow-update
+  output: 'shallow update not allowed|--unshallow on a complete repository|fatal: refusing to fetch into.*shallow'
+  example: " ! [remote rejected] main -> main (shallow update not allowed)"
+  cause: "浅い clone（--depth）なので履歴が足りず、この操作ができない"
+  fix:
+    - "全履歴を取得する: git fetch --unshallow"
+
+- id: git-refusing-merge-unrelated
+  output: 'refusing to merge unrelated histories'
+  example: "fatal: refusing to merge unrelated histories"
+  priority: 1
+  cause: "共通の祖先を持たない 2 つの履歴を merge しようとしている"
+  fix:
+    - "意図通りなら許可して取り込む: git pull origin main --allow-unrelated-histories"
+
+- id: git-cherry-pick-conflict
+  output: 'could not apply (?P<commit>[0-9a-f]{7,})|after resolving the conflicts, mark the corrected paths'
+  example: "error: could not apply 1a2b3c4... fix typo"
+  cause: "cherry-pick / revert / rebase でコミットを適用中に競合した"
+  fix:
+    - "競合を直して git add <file> → git cherry-pick --continue（rebase なら git rebase --continue）"
+    - "やめるなら: git cherry-pick --abort（または git rebase --abort）"
+
+- id: git-cherry-pick-in-progress
+  output: 'cherry-pick is already in progress|You have not concluded your cherry-pick'
+  example: "error: cherry-pick is already in progress"
+  cause: "前回の cherry-pick が途中のまま残っている"
+  fix:
+    - "続ける: git cherry-pick --continue"
+    - "取り消す: git cherry-pick --abort"
+
+- id: git-not-a-remote-repo
+  output: "'(?P<remote>[^']+)' does not appear to be a git repository"
+  example: "fatal: 'origin' does not appear to be a git repository"
+  cause: "リモート「{{remote}}」が登録されていない、または URL が間違っている"
+  fix:
+    - "登録済みのリモートを確認: git remote -v"
+    - "追加する: git remote add {{remote}} <URL>"
+
+- id: git-ssh-publickey
+  output: 'git@[^:]+: Permission denied \(publickey\)'
+  example: "git@github.com: Permission denied (publickey)."
+  priority: 1
+  cause: "git の SSH 接続で公開鍵認証に失敗した（鍵が未登録か ssh-agent に鍵がない）"
+  fix:
+    - "接続確認: ssh -T git@github.com"
+    - "鍵が無ければ作成: ssh-keygen -t ed25519 → 公開鍵(~/.ssh/id_ed25519.pub)を GitHub に登録"
+    - "HTTPS で使うなら: git remote set-url origin https://github.com/<user>/<repo>.git"
+
+- id: git-cannot-lock-ref
+  output: "cannot lock ref '(?P<ref>[^']+)'"
+  example: "error: cannot lock ref 'refs/remotes/origin/feature': is at 1a2b3c but expected 4d5e6f"
+  cause: "参照「{{ref}}」がロック中、または古い参照と名前が衝突している"
+  fix:
+    - "古いリモート参照を掃除する: git remote prune origin"
+    - "別の git が動いていないか確認し、残ったロックがあれば削除: rm .git/{{ref}}.lock"
+
+- id: git-submodule-not-initialized
+  output: 'No url found for submodule path|fatal: not a git repository: .*\.git/modules/'
+  example: "fatal: No url found for submodule path 'vendor/lib' in .gitmodules"
+  cause: "サブモジュールの設定（.gitmodules）と実体が食い違っている"
+  fix:
+    - "初期化と取得: git submodule update --init --recursive"
+    - "同期し直す: git submodule sync --recursive"
+
+- id: git-empty-submodule
+  output: 'already exists in the index|is not a submodule'
+  example: "fatal: 'vendor/lib' already exists in the index"
+  cause: "追加しようとしたパスが既に通常のファイルとして管理されている"
+  fix:
+    - "インデックスから外してから追加する: git rm -r --cached <path> && git submodule add <URL> <path>"
+
+- id: git-stash-conflict
+  output: 'conflicts in index\. Try without --index|could not restore untracked files from stash|The stash entry is kept in case you need it again'
+  example: "The stash entry is kept in case you need it again."
+  cause: "stash を戻した時に競合した（stash 自体は残っている）"
+  fix:
+    - "競合を直して git add → 不要になったら git stash drop"
+    - "別ブランチで戻す: git stash branch <新ブランチ名>"
+
+- id: git-would-clobber-tag
+  output: 'would clobber existing tag'
+  example: " ! [rejected]        v1.0 -> v1.0  (would clobber existing tag)"
+  cause: "リモートと手元で同名のタグが別のコミットを指している"
+  fix:
+    - "リモートのタグで上書き: git fetch --tags --force"
+
+- id: git-bad-object
+  output: 'fatal: bad object|error: object file .* is empty|fatal: loose object .* is corrupt|fatal: packed object .* is corrupt'
+  example: "error: object file .git/objects/4b/825dc642cb6eb9a060e54bf8d69288fbee4904 is empty"
+  cause: "リポジトリのオブジェクトが壊れている（異常終了やディスクの問題など）"
+  fix:
+    - "状態を確認: git fsck --full"
+    - "リモートがあれば別の場所に clone し直して作業ファイルを移すのが確実"
+
+- id: git-rpc-failed
+  output: 'RPC failed|early EOF|the remote end hung up unexpectedly|unexpected disconnect while reading sideband packet'
+  example: "error: RPC failed; curl 92 HTTP/2 stream 0 was not closed cleanly: CANCEL (err 8)"
+  cause: "転送中に接続が切れた（大きすぎる push/clone、不安定な回線、HTTP/2 の問題など）"
+  fix:
+    - "HTTP/1.1 にする: git config --global http.version HTTP/1.1"
+    - "バッファを増やす: git config --global http.postBuffer 524288000"
+    - "clone なら浅く取得してから広げる: git clone --depth 1 <URL> → git fetch --unshallow"
+
+- id: git-protected-branch
+  output: 'protected branch hook declined|GH006: Protected branch update failed|pre-receive hook declined'
+  example: "remote: error: GH006: Protected branch update failed for refs/heads/main."
+  cause: "リモート側で保護されたブランチ（またはフック）により push が拒否された"
+  fix:
+    - "別ブランチに push して Pull Request を作る: git switch -c feature && git push -u origin HEAD"
+
+- id: git-secret-detected
+  output: 'GH013: Repository rule violations|Push cannot contain secrets|secret scanning'
+  example: "remote: error: GH013: Repository rule violations found for refs/heads/main."
+  cause: "コミットにトークンなどの秘密情報が含まれていたため GitHub が push を拒否した"
+  fix:
+    - "該当ファイルから秘密情報を消し、履歴からも除く（直前なら git commit --amend、古いなら git rebase -i）"
+    - "漏れた可能性のあるトークンは失効して再発行する"
+
+- id: git-filename-too-long
+  output: 'Filename too long'
+  example: "error: unable to create file src/very/long/path/file.ts: Filename too long"
+  cause: "パスが長すぎて作成できない（主に Windows 側のファイルシステム）"
+  fix:
+    - "長いパスを許可する: git config --global core.longpaths true"
+
+- id: git-lf-crlf-warning
+  output: '(?:LF|CRLF) will be replaced by (?:CRLF|LF)'
+  example: "warning: in the working copy of 'run.sh', LF will be replaced by CRLF the next time Git touches it"
+  cause: "改行コードの自動変換（core.autocrlf）が有効になっている（警告のみ）"
+  fix:
+    - "WSL/Linux では変換しない: git config --global core.autocrlf input"
+    - "リポジトリで固定するなら .gitattributes に「* text=auto eol=lf」"
+
+- id: git-worktree-exists
+  output: "'(?P<branch>[^']+)' is already (?:checked out|used by worktree) at"
+  example: "fatal: 'main' is already checked out at '/home/user/repo'"
+  cause: "ブランチ「{{branch}}」は別の worktree で使用中"
+  fix:
+    - "worktree の一覧: git worktree list"
+    - "不要な worktree を消す: git worktree remove <path>"
+
+- id: git-pathspec-not-in-repo
+  output: "is outside repository at"
+  example: "fatal: /tmp/x.txt: '/tmp/x.txt' is outside repository at '/home/user/repo'"
+  cause: "リポジトリの外にあるファイルを指定している"
+  fix:
+    - "リポジトリ内のパスを指定する（またはファイルをリポジトリ内にコピーする）"
+
+- id: git-lfs-missing
+  output: "git-lfs filter-process: git-lfs: command not found|This repository is configured for Git LFS but 'git-lfs' was not found"
+  example: "This repository is configured for Git LFS but 'git-lfs' was not found on your path."
+  cause: "Git LFS を使うリポジトリだが git-lfs が入っていない"
+  fix:
+    - "インストール: sudo apt install git-lfs && git lfs install"
+    - "実体を取得: git lfs pull"
+
+- id: gh-not-logged-in
+  prog: gh
+  output: 'gh auth login|not logged into any GitHub hosts|HTTP 401: Bad credentials'
+  example: "To get started with GitHub CLI, please run:  gh auth login"
+  cause: "GitHub CLI（gh）にログインしていない、またはトークンが無効"
+  fix:
+    - "ログイン: gh auth login"
+    - "状態確認: gh auth status"
