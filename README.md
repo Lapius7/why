@@ -22,7 +22,7 @@ $ why
 ### npm（推奨）
 
 ```sh
-npm i -g @lapius/why
+pnpm add -g @lapius/why
 ```
 
 Linux / macOS（x64・arm64）用のビルド済みバイナリが入る。Go は不要。インストール後、下の表のフックを設定ファイルに追記する。
