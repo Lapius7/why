@@ -1,9 +1,5 @@
 <div align="center">
 
-<p align="center">
-  <img src="docs/images/banner.png" alt="why" width="100%">
-</p>
-
 <p align="center"><a href="README.md">English</a> | <b>日本語</b></p>
 
 <h1 align="center">why</h1>
