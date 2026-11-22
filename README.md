@@ -1,8 +1,31 @@
-# why
+<div align="center">
 
-[![npm](https://img.shields.io/npm/v/@lapius/why)](https://www.npmjs.com/package/@lapius/why) [![release](https://github.com/Lapius7/why/actions/workflows/release.yml/badge.svg)](https://github.com/Lapius7/why/actions/workflows/release.yml)
+<p align="center">
+  <img src="docs/images/banner.png" alt="why" width="100%">
+</p>
 
-失敗したコマンドの**原因と対処法を日本語で表示する** CLI。オフラインで動作し、AI は使わない。
+<p align="center"><b>English</b> | <a href="README.ja.md">日本語</a></p>
+
+<h1 align="center">why</h1>
+
+<h3 align="center">Shows the cause of a failed command and how to fix it, in Japanese.</h3>
+
+<p align="center">A CLI that explains why your last command failed. It works offline and does not use AI. The messages are in Japanese.</p>
+
+<p align="center">
+  <a href="https://www.npmjs.com/package/@lapius/why"><img alt="npm" src="https://img.shields.io/npm/v/@lapius/why?style=flat-square&color=cb3837&logo=npm"></a>
+  <a href="https://github.com/Lapius7/why/actions/workflows/release.yml"><img alt="Release workflow" src="https://img.shields.io/github/actions/workflow/status/Lapius7/why/release.yml?label=release&style=flat-square&logo=githubactions&logoColor=white"></a>
+  <a href="https://go.dev"><img alt="Go" src="https://img.shields.io/badge/lang-Go-00add8?logo=go&logoColor=white&style=flat-square"></a>
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/Lapius7/why?style=flat-square&color=97ca00"></a>
+  <a href="https://github.com/Lapius7/why/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/Lapius7/why?style=flat-square&color=e3b341&logo=github"></a>
+  <a href="https://github.com/Lapius7/why/commits/main"><img alt="Last commit" src="https://img.shields.io/github/last-commit/Lapius7/why?style=flat-square&color=3b82f6"></a>
+</p>
+
+<p align="center"><a href="#quick-start">Quick start</a> · <a href="#usage">Usage</a> · <a href="#rules">Rules</a> · <a href="#development">Development</a></p>
+
+</div>
+
+---
 
 ```
 $ git push
@@ -17,101 +40,116 @@ $ why
       → 新しく始めるなら: git init
 ```
 
-## インストール
+## Features
 
-### pnpm（推奨）
+- **Offline, no AI**: matches the exit code, the command and the output against YAML rules.
+- **Your own rules**: add rules in `~/.config/why/rules/*.yaml`. A rule with the same `id` overrides a built-in one.
+- **Shell hooks**: zsh, bash and fish. The hook only records failed commands.
+- **Output capture**: reads output from tmux history, from `why -r`, or from a pipe.
+- **Rule files**: built-in rules for build, docker, generic, git, node, python and system errors.
 
-> このパッケージは **pnpm 前提**です。npm と pnpm の両方に入れると同じコマンドが二重になるため、`pnpm add -g` だけを使ってください。
+## Quick start
+
+### pnpm (recommended)
 
 ```sh
 pnpm add -g @lapius/why
 ```
 
-Linux / macOS（x64・arm64）用のビルド済みバイナリが入る。Go は不要。インストール後、下の表のフックを設定ファイルに追記する。
+> [!NOTE]
+> The package is built for pnpm. Do not install it with both npm and pnpm, or the same command exists twice. Use only `pnpm add -g`.
 
-初回の起動時に自分自身をネイティブバイナリに置き換えるので、2 回目以降は node を経由せずに動く。
+This installs a prebuilt binary for Linux and macOS (x64 and arm64). Go is not needed. After installing, add the hook from the table below to your shell config. On first run the shim replaces itself with the native binary, so later runs do not go through node.
 
-### インストーラ（npm も Go も不要）
+### Installer (no npm, no Go)
 
-GitHub Release からビルド済みバイナリを `~/.local/bin` に取得し、シェルの設定ファイルへのフック追記まで行う。
+Downloads the prebuilt binary from GitHub Releases to `~/.local/bin` and adds the hook to your shell config.
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/Lapius7/why/main/install.sh | sh
 ```
 
-オプションは `--no-hook`（フックを追記しない）と `--uninstall`（削除）。インストール先は `WHY_BIN`、バージョンは `WHY_VERSION=v0.1.1` で指定できる。
+Options: `--no-hook` (do not edit the shell config) and `--uninstall`. Set the install path with `WHY_BIN` and the version with `WHY_VERSION=v0.1.1`.
 
-### ソースから
+### From source
 
-`go install github.com/Lapius7/why/cmd/why@latest`。clone 済みなら `./install.sh`（または `just install`）でソースからビルドしてフックも追記する。
+`go install github.com/Lapius7/why/cmd/why@latest`. From a clone, `./install.sh` (or `just install`) builds from source and adds the hook.
 
-### フック
+### Hook
 
-失敗したコマンドを記録するだけで、成功時は何もしない。
-
-| シェル | 追記する内容 |
-|-|-|
+| Shell | Line to add |
+|---|---|
 | zsh (`~/.zshrc`) | `eval "$(why init zsh)"` |
 | bash (`~/.bashrc`) | `eval "$(why init bash)"` |
 | fish (`~/.config/fish/config.fish`) | `why init fish \| source` |
 
-## 使い方
+## Usage
 
-| コマンド | 内容 |
-|-|-|
-| `why` | 直前に失敗したコマンドを説明 |
-| `why -r` | 直前のコマンドを確認後に再実行し、出力も含めて説明 |
-| `why -- <cmd>` | コマンドを実行し、失敗したら説明（終了コードは引き継ぐ） |
-| `<cmd> 2>&1 \| why` | パイプで渡した出力を説明 |
-| `why 137` | 終了コードの意味を説明 |
-| `why rules` | 読み込まれているルールの一覧 |
+| Command | What it does |
+|---|---|
+| `why` | Explain the last failed command |
+| `why -r` | Re-run the last command after confirmation and explain it with its output |
+| `why -- <cmd>` | Run the command and explain it if it fails (keeps the exit code) |
+| `<cmd> 2>&1 \| why` | Explain output passed through a pipe |
+| `why 137` | Explain what an exit code means |
+| `why rules` | List the loaded rules |
 
-### エラー出力の取得
+### Getting the error output
 
-シェルは stderr を保存しないため、フックで分かるのは「コマンド・終了コード・場所」だけ。出力は次の方法で補う。
+A shell does not save stderr, so the hook knows only the command, the exit code and the directory. The output comes from one of these:
 
-- **tmux 内**: 画面の履歴から直前のコマンドの出力を自動で取り込む
-- **`why -r`**: 再実行して取り込む。`rm` / `git push` / `sudo` / リダイレクトなど副作用がありそうなものは拒否する（`--force` で強制）
-- **パイプ / `why --`**: 最初から取り込む
+- **Inside tmux**: reads the output of the last command from the screen history.
+- **`why -r`**: re-runs the command and captures it. It refuses commands that may have side effects, such as `rm`, `git push`, `sudo` and redirects (`--force` overrides).
+- **Pipe or `why --`**: captures from the start.
 
-再実行時はメッセージを英語（`LC_MESSAGES=C.UTF-8`）にしてルールと照合しやすくする。主なルールは日本語メッセージにも対応している。
+A re-run uses English messages (`LC_MESSAGES=C.UTF-8`) so they match the rules more easily. The main rules also match Japanese messages.
 
-## ルール
+## Rules
 
-組み込みルールは `rules/*.yaml`。`~/.config/why/rules/*.yaml` に置くと追加でき、同じ `id` なら組み込みを上書きする。
+Built-in rules are in `rules/*.yaml`. Rules in `~/.config/why/rules/*.yaml` are added, and one with the same `id` overrides the built-in rule.
 
 ```yaml
 - id: my-port
-  prog: 'node|npm'            # プログラム名（正規表現・完全一致）
-  cmd: 'run dev'              # コマンドライン全体（正規表現）
-  code: [1]                   # 終了コード
-  output: 'EADDRINUSE.*?:(?P<port>\d+)'   # 出力（正規表現、(?m) 付き）
+  prog: 'node|npm'            # program name (regex, full match)
+  cmd: 'run dev'              # whole command line (regex)
+  code: [1]                   # exit codes
+  output: 'EADDRINUSE.*?:(?P<port>\d+)'   # output (regex, with (?m))
   example: "Error: listen EADDRINUSE: address already in use :::3000"
-  priority: 1                 # 表示順の補正（任意）
+  priority: 1                 # display order adjustment (optional)
   cause: "ポート {{port}} が使用中"
   fix:
     - "ss -ltnp 'sport = :{{port}}'"
 ```
 
-- 指定した条件がすべて一致したときに表示される。スコアは output=2、その他=各1 に priority を足したもので、上位 3 件を表示する
-- `output` の名前付きグループ、および `{{prog}}` `{{cmd}}` `{{code}}` を `cause` / `fix` で使える
-- 値が空の変数を含む `fix` 行は表示しない
-- `output` を持つ組み込みルールには `example` が必須で、`go test` で一致を検証する
+- A rule shows only when all of its conditions match. The score is 2 for `output` and 1 for each other condition, plus `priority`. The top 3 are shown.
+- Named groups in `output`, and `{{prog}}`, `{{cmd}}` and `{{code}}`, work in `cause` and `fix`.
+- A `fix` line with an empty variable is not shown.
+- A built-in rule with `output` needs an `example`, and `go test` checks that it matches.
 
-## 記録ファイル
+### Record file
 
-`${XDG_STATE_HOME:-~/.local/state}/why/last-<シェルのPID>`。内容は終了コード・cwd・コマンドの 3 つ。7 日より古いものは自動で削除する。
+`${XDG_STATE_HOME:-~/.local/state}/why/last-<shell PID>` holds the exit code, the cwd and the command. Files older than 7 days are deleted automatically.
 
-## リリース
+## Safety
 
-`v*` タグを push すると GitHub Actions がビルドし、npm（`@lapius/why` と OS/CPU 別の `@lapius/why-<os>-<cpu>`）への公開と GitHub Release への添付を行う。
+> [!NOTE]
+> Not verified here: the npm and installer routes, the shell hooks, and tmux capture. A binary built from this source was run once with piped output, and it printed the cause and fix shown above. Windows is not covered by the prebuilt packages.
+
+## Development
+
+```sh
+go test ./...
+just npm-pack   # builds .tgz files in dist/npm/
+```
+
+## Release
+
+Pushing a `v*` tag makes GitHub Actions build the binaries, publish to npm (`@lapius/why` and per-platform `@lapius/why-<os>-<cpu>`) and attach them to a GitHub Release.
 
 ```sh
 git tag v0.1.0 && git push origin v0.1.0
 ```
 
-ローカルで確認するなら `just npm-pack`（`dist/npm/` に .tgz を作る）。
+## License
 
-## ライセンス
-
-MIT
+[MIT](LICENSE)
